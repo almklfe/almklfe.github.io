@@ -1,11 +1,10 @@
 <!DOCTYPE html>
 <html lang="ar">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>أداة التنبؤ بالشمعة القادمة - Binance</title>
-  <!-- استخدام CDN بديل أكثر موثوقية -->
-  <script src="https://cdn.jsdelivr.net/npm/lightweight-charts/dist/lightweight-charts.standalone.production.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/lightweight-charts@3.8.0/dist/lightweight-charts.standalone.production.js"></script>
   <style>
     body {
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -74,6 +73,14 @@
       height: 300px;
       margin-top: 20px;
       width: 100%;
+      position: relative;
+    }
+    #chart-loader {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%,-50%);
+      color: #94a3b8;
     }
     .error {
       color: #ef4444;
@@ -81,6 +88,20 @@
       background: #1e293b;
       border-radius: 5px;
       margin-top: 10px;
+      display: none;
+    }
+    .confidence-bar {
+      height: 10px;
+      background: #334155;
+      border-radius: 5px;
+      margin: 5px 0;
+      overflow: hidden;
+    }
+    .confidence-level {
+      height: 100%;
+      background: linear-gradient(to right, #ef4444, #3b82f6, #10b981);
+      width: 0%;
+      transition: width 0.5s;
     }
   </style>
 </head>
@@ -88,8 +109,10 @@
   <div class="tool-container">
     <h2>📊 أداة التنبؤ باتجاه الشمعة القادمة</h2>
 
-    <div id="chart"></div>
-    <div id="error" class="error" style="display:none;"></div>
+    <div id="chart">
+      <div id="chart-loader">جاري تحميل الرسم البياني...</div>
+    </div>
+    <div id="error" class="error"></div>
 
     <label for="pair">🔽 اختر زوج العملة:</label>
     <select id="pair">
@@ -98,6 +121,8 @@
       <option value="bnbusdt">BNB/USDT</option>
       <option value="solusdt">SOL/USDT</option>
       <option value="xrpusdt">XRP/USDT</option>
+      <option value="adausdt">ADA/USDT</option>
+      <option value="dogeusdt">DOGE/USDT</option>
     </select>
 
     <button id="analyzeBtn" onclick="analyzeCandle()">🔍 تحليل الشمعة</button>
@@ -120,253 +145,283 @@
   </div>
 
   <script>
-    // كائنات عامة
-    let socket, chart, candleSeries;
-    let latestCandle, reconnectAttempts = 0;
-    const maxReconnectAttempts = 5;
-    const connStatus = document.getElementById("connectionStatus").querySelector("span");
-    const liveDataBox = document.getElementById("liveData");
-    const errorBox = document.getElementById("error");
-    const analyzeBtn = document.getElementById("analyzeBtn");
-
-    // تهيئة الرسم البياني
-    function initChart() {
-      try {
-        if (chart) chart.remove();
-        chart = LightweightCharts.createChart(document.getElementById("chart"), {
-          layout: { 
-            backgroundColor: '#0f172a', 
-            textColor: '#f8fafc',
-            fontFamily: 'Segoe UI'
-          },
-          grid: { 
-            vertLines: { color: '#334155' }, 
-            horzLines: { color: '#334155' } 
-          },
-          timeScale: { 
-            timeVisible: true, 
-            secondsVisible: false,
-            borderColor: '#475569'
-          },
-          crosshair: {
-            mode: LightweightCharts.CrosshairMode.Normal,
-          },
-          width: document.getElementById("chart").clientWidth,
-          height: 300
-        });
-        
-        candleSeries = chart.addCandlestickSeries({
-          upColor: '#10b981',
-          downColor: '#ef4444',
-          borderDownColor: '#ef4444',
-          borderUpColor: '#10b981',
-          wickDownColor: '#ef4444',
-          wickUpColor: '#10b981',
-        });
-        
-        return true;
-      } catch (err) {
-        showError(`خطأ في تحميل الرسم البياني: ${err.message}`);
-        return false;
-      }
-    }
-
-    // الاتصال بويب سوكيت Binance
-    function connectWebSocket(pair) {
-      if (socket) {
-        socket.close();
-        socket = null;
-      }
+    // كائن التطبيق الرئيسي
+    const TradingTool = {
+      socket: null,
+      chart: null,
+      candleSeries: null,
+      latestCandle: null,
+      reconnectAttempts: 0,
+      maxReconnectAttempts: 5,
       
-      // إعادة المحاولات
-      if (reconnectAttempts >= maxReconnectAttempts) {
-        showError("وصلنا لأقصى عدد من محاولات الاتصال. يرجى تحديث الصفحة.");
-        return;
-      }
+      init: function() {
+        this.initChart();
+        this.setupEventListeners();
+        this.connectWebSocket(document.getElementById('pair').value);
+        this.updateStats();
+      },
       
-      reconnectAttempts++;
-      connStatus.textContent = "🟡 جاري الاتصال...";
-      connStatus.style.color = "#f59e0b";
-      
-      try {
-        const url = `wss://stream.binance.com:9443/ws/${pair}@kline_5m`;
-        socket = new WebSocket(url);
-
-        socket.onopen = () => {
-          reconnectAttempts = 0;
-          connStatus.textContent = "🟢 متصل";
-          connStatus.style.color = "#10b981";
-          liveDataBox.innerHTML = "⏳ جاري استقبال البيانات...";
-          analyzeBtn.disabled = false;
-        };
-
-        socket.onclose = (e) => {
-          connStatus.textContent = "🔴 انقطع الاتصال";
-          connStatus.style.color = "#ef4444";
-          analyzeBtn.disabled = true;
+      initChart: function() {
+        try {
+          const chartContainer = document.getElementById('chart');
           
-          if (!e.wasClean) {
-            setTimeout(() => connectWebSocket(pair), 3000);
+          // إزالة الرسم البياني القديم إذا كان موجوداً
+          if (this.chart) {
+            this.chart.remove();
           }
-        };
-
-        socket.onerror = (err) => {
-          showError(`خطأ في الاتصال: ${err.message || 'غير معروف'}`);
-          socket.close();
-        };
-
-        socket.onmessage = function (event) {
-          try {
-            const data = JSON.parse(event.data);
-            if (data.k) {
-              const k = data.k;
-              latestCandle = k;
-
-              const bar = {
-                time: k.t / 1000,
-                open: parseFloat(k.o),
-                high: parseFloat(k.h),
-                low: parseFloat(k.l),
-                close: parseFloat(k.c),
-              };
-              
-              candleSeries.update(bar);
-              
-              if (!k.x) {
-                liveDataBox.innerHTML = `
-                  🕒 الوقت: ${new Date(k.t).toLocaleTimeString()}<br>
-                  📈 الإغلاق: ${bar.close.toFixed(4)}<br>
-                  📉 الافتتاح: ${bar.open.toFixed(4)}<br>
-                  🔼 الأعلى: ${bar.high.toFixed(4)}<br>
-                  🔽 الأدنى: ${bar.low.toFixed(4)}<br>
-                  🔁 الحجم: ${parseFloat(k.v).toFixed(2)}
-                `;
-              }
+          
+          // إنشاء الرسم البياني الجديد
+          this.chart = LightweightCharts.createChart(chartContainer, {
+            layout: {
+              backgroundColor: '#0f172a',
+              textColor: '#f8fafc',
+              fontFamily: 'Segoe UI'
+            },
+            grid: {
+              vertLines: { color: '#334155' },
+              horzLines: { color: '#334155' }
+            },
+            timeScale: {
+              timeVisible: true,
+              secondsVisible: false,
+              borderColor: '#475569'
+            },
+            width: chartContainer.clientWidth,
+            height: 300
+          });
+          
+          this.candleSeries = this.chart.addCandlestickSeries({
+            upColor: '#10b981',
+            downColor: '#ef4444',
+            borderDownColor: '#ef4444',
+            borderUpColor: '#10b981',
+            wickDownColor: '#ef4444',
+            wickUpColor: '#10b981',
+          });
+          
+          document.getElementById('chart-loader').style.display = 'none';
+        } catch (error) {
+          this.showError(`فشل تحميل الرسم البياني: ${error.message}`);
+        }
+      },
+      
+      connectWebSocket: function(pair) {
+        // إغلاق الاتصال القديم إذا كان موجوداً
+        if (this.socket) {
+          this.socket.close();
+        }
+        
+        // التحقق من عدد محاولات إعادة الاتصال
+        if (this.reconnectAttempts >= this.maxReconnectAttempts) {
+          this.showError('وصلنا لأقصى عدد من محاولات الاتصال. يرجى تحديث الصفحة.');
+          return;
+        }
+        
+        this.reconnectAttempts++;
+        this.updateConnectionStatus('🟡 جاري الاتصال...', '#f59e0b');
+        
+        try {
+          const url = `wss://stream.binance.com:9443/ws/${pair}@kline_5m`;
+          this.socket = new WebSocket(url);
+          
+          this.socket.onopen = () => {
+            this.reconnectAttempts = 0;
+            this.updateConnectionStatus('🟢 متصل', '#10b981');
+            document.getElementById('analyzeBtn').disabled = false;
+            document.getElementById('liveData').textContent = '⏳ جاري استقبال البيانات...';
+          };
+          
+          this.socket.onclose = (e) => {
+            this.updateConnectionStatus('🔴 انقطع الاتصال', '#ef4444');
+            document.getElementById('analyzeBtn').disabled = true;
+            
+            if (!e.wasClean && this.reconnectAttempts < this.maxReconnectAttempts) {
+              setTimeout(() => this.connectWebSocket(pair), 3000);
             }
-          } catch (err) {
-            showError(`خطأ في معالجة البيانات: ${err.message}`);
-          }
+          };
+          
+          this.socket.onerror = (error) => {
+            this.showError(`خطأ في الاتصال: ${error.message || 'غير معروف'}`);
+          };
+          
+          this.socket.onmessage = (event) => {
+            try {
+              const data = JSON.parse(event.data);
+              if (data.k) {
+                this.processCandleData(data.k);
+              }
+            } catch (error) {
+              this.showError(`خطأ في معالجة البيانات: ${error.message}`);
+            }
+          };
+        } catch (error) {
+          this.showError(`خطأ في إنشاء الاتصال: ${error.message}`);
+        }
+      },
+      
+      processCandleData: function(k) {
+        this.latestCandle = k;
+        
+        const bar = {
+          time: k.t / 1000,
+          open: parseFloat(k.o),
+          high: parseFloat(k.h),
+          low: parseFloat(k.l),
+          close: parseFloat(k.c),
         };
-      } catch (err) {
-        showError(`خطأ في إنشاء الاتصال: ${err.message}`);
-      }
-    }
-
-    // تحليل الشمعة
-    function analyzeCandle() {
-      const resultBox = document.getElementById("result");
-      resultBox.style.display = "block";
-      
-      if (!latestCandle) {
-        resultBox.innerHTML = "⚠️ لا توجد بيانات حية حالياً. انتظر حتى تكتمل الشمعة الحالية.";
-        return;
-      }
-
-      try {
-        const open = parseFloat(latestCandle.o);
-        const close = parseFloat(latestCandle.c);
-        const high = parseFloat(latestCandle.h);
-        const low = parseFloat(latestCandle.l);
-        const isBullish = close > open;
-
-        let direction = isBullish ? "شراء" : "بيع";
-        let confidence = 50;
-        let reason = "";
-
-        const body = Math.abs(close - open);
-        const candleSize = high - low;
-        const bodyRatio = candleSize > 0 ? (body / candleSize) : 0;
-
-        if (bodyRatio > 0.6) {
-          confidence = 85;
-          reason = "جسم شمعة كبير وزخم قوي في الاتجاه الحالي.";
-        } else if (bodyRatio > 0.3) {
-          confidence = 70;
-          reason = "شمعة متوسطة تشير إلى احتمال استمرار الاتجاه.";
-        } else {
-          confidence = 55;
-          reason = "شمعة ضعيفة مع تذبذب، احتمال انعكاس أو تردد في السوق.";
+        
+        this.candleSeries.update(bar);
+        
+        if (!k.x) {
+          document.getElementById('liveData').innerHTML = `
+            🕒 الوقت: ${new Date(k.t).toLocaleTimeString()}<br>
+            📈 الإغلاق: ${bar.close.toFixed(4)}<br>
+            📉 الافتتاح: ${bar.open.toFixed(4)}<br>
+            🔼 الأعلى: ${bar.high.toFixed(4)}<br>
+            🔽 الأدنى: ${bar.low.toFixed(4)}<br>
+            🔁 الحجم: ${parseFloat(k.v).toFixed(2)}
+          `;
         }
-
-        resultBox.innerHTML = `
-          <strong>🔮 الشمعة التالية:</strong> <span style="color:${isBullish ? '#10b981' : '#ef4444'}">${direction}</span><br>
-          <strong>📊 نسبة الثقة:</strong> ${confidence}%<br>
-          <strong>📌 السبب:</strong> ${reason}
-        `;
-      } catch (err) {
-        resultBox.innerHTML = `⚠️ حدث خطأ أثناء التحليل: ${err.message}`;
-      }
-    }
-
-    // تسجيل الإحصائيات
-    function recordStat(correct) {
-      try {
-        let correctCount = parseInt(localStorage.getItem("correct") || "0");
-        let wrongCount = parseInt(localStorage.getItem("wrong") || "0");
-
-        if (correct) correctCount++;
-        else wrongCount++;
-
-        localStorage.setItem("correct", correctCount);
-        localStorage.setItem("wrong", wrongCount);
-        updateStats();
-      } catch (err) {
-        showError(`خطأ في حفظ الإحصائيات: ${err.message}`);
-      }
-    }
-
-    // تحديث الإحصائيات
-    function updateStats() {
-      try {
-        const correct = parseInt(localStorage.getItem("correct") || "0");
-        const wrong = parseInt(localStorage.getItem("wrong") || "0");
-        const total = correct + wrong;
-        const accuracy = total > 0 ? ((correct / total) * 100).toFixed(1) : 0;
-
-        document.getElementById("correctCount").textContent = correct;
-        document.getElementById("wrongCount").textContent = wrong;
-        document.getElementById("accuracy").textContent = accuracy;
-      } catch (err) {
-        showError(`خطأ في تحميل الإحصائيات: ${err.message}`);
-      }
-    }
-
-    // عرض الأخطاء
-    function showError(message) {
-      errorBox.style.display = "block";
-      errorBox.textContent = message;
-      console.error(message);
+      },
       
-      setTimeout(() => {
-        errorBox.style.display = "none";
-      }, 5000);
-    }
-
-    // تهيئة الصفحة عند التحميل
-    window.addEventListener('load', () => {
-      if (!initChart()) return;
-      
-      const pairSelect = document.getElementById("pair");
-      connectWebSocket(pairSelect.value);
-      
-      pairSelect.addEventListener("change", function() {
-        latestCandle = null;
-        if (initChart()) {
-          connectWebSocket(this.value);
+      analyzeCandle: function() {
+        const resultBox = document.getElementById('result');
+        resultBox.style.display = 'block';
+        
+        if (!this.latestCandle) {
+          resultBox.innerHTML = '⚠️ لا توجد بيانات حية حالياً. انتظر حتى تكتمل الشمعة الحالية.';
+          return;
         }
-      });
+        
+        try {
+          const k = this.latestCandle;
+          const open = parseFloat(k.o);
+          const close = parseFloat(k.c);
+          const high = parseFloat(k.h);
+          const low = parseFloat(k.l);
+          const isBullish = close > open;
+          
+          let direction = isBullish ? 'شراء' : 'بيع';
+          let confidence = 50;
+          let reasons = [];
+          
+          const body = Math.abs(close - open);
+          const candleSize = high - low;
+          const bodyRatio = candleSize > 0 ? (body / candleSize) : 0;
+          
+          // تحليل جسم الشمعة
+          if (bodyRatio > 0.7) {
+            confidence += 30;
+            reasons.push('جسم شمعة كبير جداً يشير إلى زخم قوي');
+          } else if (bodyRatio > 0.4) {
+            confidence += 15;
+            reasons.push('جسم شمعة واضح يدعم الاتجاه');
+          } else if (bodyRatio > 0.1) {
+            confidence += 5;
+            reasons.push('جسم شمعة صغير مع تردد في السوق');
+          } else {
+            confidence -= 10;
+            reasons.push('شمعة دوجي تشير إلى تردد شديد');
+          }
+          
+          // تحليل الظلال
+          const upperShadow = high - (isBullish ? close : open);
+          const lowerShadow = (isBullish ? open : close) - low;
+          
+          if (upperShadow > body * 2 && lowerShadow > body * 2) {
+            confidence -= 15;
+            reasons.push('ظلال طويلة من كلا الجانبين تشير إلى صراع بين المشترين والبائعين');
+          } else if (upperShadow > body * 1.5) {
+            confidence -= 8;
+            reasons.push('ظل علوي طويل يشير إلى مقاومة');
+          } else if (lowerShadow > body * 1.5) {
+            confidence -= 8;
+            reasons.push('ظل سفلي طويل يشير إلى دعم');
+          }
+          
+          // ضبط الثقة في الحدود المنطقية
+          confidence = Math.max(30, Math.min(90, confidence));
+          
+          // عرض النتائج
+          resultBox.innerHTML = `
+            <strong>🔮 التنبؤ بالشمعة القادمة:</strong> <span style="color:${isBullish ? '#10b981' : '#ef4444'}">${direction}</span><br>
+            <strong>📊 نسبة الثقة:</strong> ${confidence}%
+            <div class="confidence-bar"><div class="confidence-level" style="width:${confidence}%"></div></div>
+            <strong>📌 الأسباب:</strong><br>
+            <ul style="margin-top:5px;padding-right:15px;">${reasons.map(r => `<li>${r}</li>`).join('')}</ul>
+          `;
+        } catch (error) {
+          resultBox.innerHTML = `⚠️ حدث خطأ أثناء التحليل: ${error.message}`;
+        }
+      },
       
-      updateStats();
-    });
-
-    // إعادة الحجم عند تغيير حجم النافذة
-    window.addEventListener('resize', () => {
-      if (chart) {
-        chart.applyOptions({
-          width: document.getElementById("chart").clientWidth
+      recordStat: function(correct) {
+        try {
+          let correctCount = parseInt(localStorage.getItem('correct') || '0');
+          let wrongCount = parseInt(localStorage.getItem('wrong') || '0');
+          
+          if (correct) correctCount++;
+          else wrongCount++;
+          
+          localStorage.setItem('correct', correctCount);
+          localStorage.setItem('wrong', wrongCount);
+          this.updateStats();
+        } catch (error) {
+          this.showError(`خطأ في حفظ الإحصائيات: ${error.message}`);
+        }
+      },
+      
+      updateStats: function() {
+        try {
+          const correct = parseInt(localStorage.getItem('correct') || '0');
+          const wrong = parseInt(localStorage.getItem('wrong') || '0');
+          const total = correct + wrong;
+          const accuracy = total > 0 ? ((correct / total) * 100).toFixed(1) : 0;
+          
+          document.getElementById('correctCount').textContent = correct;
+          document.getElementById('wrongCount').textContent = wrong;
+          document.getElementById('accuracy').textContent = accuracy;
+        } catch (error) {
+          this.showError(`خطأ في تحميل الإحصائيات: ${error.message}`);
+        }
+      },
+      
+      updateConnectionStatus: function(text, color) {
+        const statusElement = document.getElementById('connectionStatus').querySelector('span');
+        statusElement.textContent = text;
+        statusElement.style.color = color;
+      },
+      
+      showError: function(message) {
+        const errorBox = document.getElementById('error');
+        errorBox.style.display = 'block';
+        errorBox.textContent = message;
+        console.error(message);
+        
+        setTimeout(() => {
+          errorBox.style.display = 'none';
+        }, 5000);
+      },
+      
+      setupEventListeners: function() {
+        document.getElementById('pair').addEventListener('change', (e) => {
+          this.latestCandle = null;
+          this.initChart();
+          this.connectWebSocket(e.target.value);
+        });
+        
+        window.addEventListener('resize', () => {
+          if (this.chart) {
+            this.chart.applyOptions({
+              width: document.getElementById('chart').clientWidth
+            });
+          }
         });
       }
-    });
+    };
+    
+    // بدء التطبيق عند تحميل الصفحة
+    window.addEventListener('load', () => TradingTool.init());
   </script>
 </body>
 </html>
