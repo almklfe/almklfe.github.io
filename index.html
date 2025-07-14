@@ -1,43 +1,965 @@
-<!DOCTYPE html>
-<html lang="ar" dir="rtl">
+
+<html dir="rtl" lang="ar">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>أداتي</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: #f4f4f4;
-      margin: 0;
-      padding: 20px;
-      direction: rtl;
-    }
-    .container {
-      background: white;
-      padding: 20px;
-      border-radius: 12px;
-      box-shadow: 0 0 10px rgba(0,0,0,0.1);
-      max-width: 600px;
-      margin: auto;
-    }
-    h1 {
-      color: #333;
-      text-align: center;
-    }
-    .tool-content {
-      margin-top: 20px;
-    }
-  </style>
+    <meta charset="UTF-8"></meta>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport"></meta>
+    <title>نظام التحليل الفني المتكامل</title>
+    <style>
+        :root {
+            --primary-color: #3498db;
+            --buy-color: #27ae60;
+            --sell-color: #e74c3c;
+            --neutral-color: #3498db;
+            --text-color: #2c3e50;
+            --bg-color: #f8f9fa;
+            --card-bg: #ffffff;
+            --border-radius: 8px;
+            --box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+        
+        body {
+            font-family: 'Tajawal', 'Segoe UI', sans-serif;
+            line-height: 1.6;
+            color: var(--text-color);
+            background-color: var(--bg-color);
+            margin: 0;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .card {
+            background-color: var(--card-bg);
+            border-radius: var(--border-radius);
+            box-shadow: var(--box-shadow);
+            padding: 25px;
+            margin-bottom: 25px;
+        }
+        
+        .symbol-selector {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+            align-items: center;
+        }
+        
+        select, button {
+            padding: 10px 15px;
+            border-radius: var(--border-radius);
+            border: 1px solid #ddd;
+            font-family: inherit;
+            font-size: 16px;
+        }
+        
+        button {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        
+        button:hover {
+            background-color: #2980b9;
+        }
+        
+        .analysis-result {
+            margin-top: 30px;
+        }
+        
+        .prediction {
+            font-size: 1.3em;
+            font-weight: bold;
+            padding: 20px;
+            border-radius: var(--border-radius);
+            text-align: center;
+            margin: 25px 0;
+            border-left: 5px solid;
+        }
+        
+        .buy {
+            background-color: rgba(46, 204, 113, 0.15);
+            color: var(--buy-color);
+            border-left-color: var(--buy-color);
+        }
+        
+        .sell {
+            background-color: rgba(231, 76, 60, 0.15);
+            color: var(--sell-color);
+            border-left-color: var(--sell-color);
+        }
+        
+        .neutral {
+            background-color: rgba(52, 152, 219, 0.15);
+            color: var(--neutral-color);
+            border-left-color: var(--neutral-color);
+        }
+        
+        .confidence-meter {
+            display: flex;
+            align-items: center;
+            margin: 20px 0;
+        }
+        
+        .confidence-bar {
+            flex-grow: 1;
+            height: 20px;
+            background-color: #ecf0f1;
+            border-radius: 10px;
+            margin: 0 15px;
+            overflow: hidden;
+        }
+        
+        .confidence-fill {
+            height: 100%;
+            border-radius: 10px;
+            transition: width 0.5s;
+        }
+        
+        .reasons-list {
+            list-style-type: none;
+            padding: 0;
+        }
+        
+        .reasons-list li {
+            padding: 10px;
+            margin-bottom: 8px;
+            background-color: #f8f9fa;
+            border-radius: 5px;
+            border-right: 3px solid var(--primary-color);
+        }
+        
+        .last-update {
+            text-align: left;
+            font-size: 0.9em;
+            color: #7f8c8d;
+            margin-top: 20px;
+        }
+        
+        .error-message {
+            color: var(--sell-color);
+            background-color: rgba(231, 76, 60, 0.1);
+            padding: 15px;
+            border-radius: var(--border-radius);
+            margin: 20px 0;
+            border-left: 5px solid var(--sell-color);
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 30px;
+            color: #7f8c8d;
+        }
+        
+        .chart-container {
+            height: 400px;
+            margin: 30px 0;
+        }
+        
+        @media (max-width: 768px) {
+            .symbol-selector {
+                flex-direction: column;
+                align-items: stretch;
+            }
+        }
+    </style>
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&amp;display=swap" rel="stylesheet"></link>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
 </head>
 <body>
-
-  <div class="container">
-    <h1>مرحبًا بك في الأداة</h1>
-    <div class="tool-content">
-      <!-- ضع كود أداتك هنا -->
-      <p>هذا نموذج أولي لصفحة HTML. يمكنك إضافة أداتك هنا.</p>
+    <div class="container">
+        <div class="header">
+            <h1>نظام التحليل الفني المتكامل</h1>
+            <p>أداة متقدمة لتحليل الأسواق المالية باستخدام أنماط الشموع والمؤشرات الفنية</p>
+        </div>
+        
+        <div class="card">
+            <div class="symbol-selector">
+                <select id="symbolSelect">
+                    <option value="BTCUSDT">BTC/USDT (بتكوين)</option>
+                    <option value="ETHUSDT">ETH/USDT (إيثريوم)</option>
+                    <option value="XAUUSD">XAU/USD (الذهب)</option>
+                    <option value="EURUSD">EUR/USD (يورو/دولار)</option>
+                    <option value="AAPL">AAPL (آبل)</option>
+                </select>
+                
+                <select id="timeframeSelect">
+                    <option value="1h">1 ساعة</option>
+                    <option value="4h">4 ساعات</option>
+                    <option value="1d">يومي</option>
+                    <option value="1w">أسبوعي</option>
+                </select>
+                
+                <button id="analyzeBtn">تحليل السوق</button>
+            </div>
+            
+            <div class="chart-container" id="chartContainer">
+                <canvas id="priceChart"></canvas>
+            </div>
+        </div>
+        
+        <div class="card analysis-result">
+            <div class="loading" id="loadingIndicator" style="display: none;">
+                <p>جارٍ تحليل البيانات... يرجى الانتظار</p>
+            </div>
+            
+            <div class="error-message" id="errorDisplay" style="display: none;"></div>
+            
+            <div id="resultContainer" style="display: none;">
+                <h2>نتائج التحليل الفني</h2>
+                
+                <div class="prediction neutral" id="prediction">غير متاح</div>
+                
+                <div class="confidence-meter">
+                    <span>نسبة الثقة:</span>
+                    <div class="confidence-bar">
+                        <div class="confidence-fill" id="confidenceBar" style="background-color: #3498db; width: 0%;"></div>
+                    </div>
+                    <span id="confidenceValue">0%</span>
+                </div>
+                
+                <h3>إشارات التحليل:</h3>
+                <ul class="reasons-list" id="reasonsList">
+                    <li>لا توجد إشارات واضحة</li>
+                </ul>
+                
+                <div class="last-update" id="lastUpdate"></div>
+            </div>
+        </div>
     </div>
-  </div>
 
+    <script>
+        // العناصر الرئيسية في الواجهة
+        const elements = {
+            symbolSelect: document.getElementById('symbolSelect'),
+            timeframeSelect: document.getElementById('timeframeSelect'),
+            analyzeBtn: document.getElementById('analyzeBtn'),
+            priceChart: document.getElementById('priceChart'),
+            loadingIndicator: document.getElementById('loadingIndicator'),
+            errorDisplay: document.getElementById('errorDisplay'),
+            resultContainer: document.getElementById('resultContainer'),
+            prediction: document.getElementById('prediction'),
+            confidenceBar: document.getElementById('confidenceBar'),
+            confidenceValue: document.getElementById('confidenceValue'),
+            reasonsList: document.getElementById('reasonsList'),
+            lastUpdate: document.getElementById('lastUpdate')
+        };
+        
+        // متغيرات النظام
+        let chartInstance = null;
+        const apiEndpoints = {
+            binance: 'https://api.binance.com/api/v3/klines',
+            alphavantage: 'https://www.alphavantage.co/query',
+            forex: 'https://api.twelvedata.com/time_series'
+        };
+        
+        // تهيئة التطبيق
+        document.addEventListener('DOMContentLoaded', () => {
+            // تعيين معالج حدث لزر التحليل
+            elements.analyzeBtn.addEventListener('click', startAnalysis);
+            
+            // يمكن هنا جلب بيانات أولية إذا لزم الأمر
+        });
+        
+        /**
+         * بدء عملية التحليل
+         */
+        async function startAnalysis() {
+            try {
+                // إظهار مؤشر التحميل وإخفاء النتائج القديمة
+                showLoading();
+                
+                // جلب البيانات المطلوبة
+                const symbol = elements.symbolSelect.value;
+                const timeframe = elements.timeframeSelect.value;
+                
+                // جلب بيانات الشموع حسب النوع
+                let candles;
+                if (symbol.includes('USDT')) {
+                    candles = await fetchBinanceData(symbol, timeframe);
+                } else if (symbol === 'XAUUSD') {
+                    candles = await fetchForexData(symbol, timeframe);
+                } else {
+                    candles = await fetchStockData(symbol, timeframe);
+                }
+                
+                // تحليل البيانات
+                const analysisResults = performTechnicalAnalysis(candles);
+                
+                // عرض النتائج
+                displayResults(analysisResults);
+                
+                // رسم الرسم البياني
+                renderPriceChart(candles, symbol);
+                
+            } catch (error) {
+                showError(`فشل في التحليل: ${error.message}`);
+                console.error('Analysis error:', error);
+            } finally {
+                hideLoading();
+            }
+        }
+        
+        /**
+         * جلب بيانات البينانس
+         */
+        async function fetchBinanceData(symbol, interval, limit = 100) {
+            try {
+                const response = await axios.get(apiEndpoints.binance, {
+                    params: {
+                        symbol: symbol.replace('/', ''),
+                        interval,
+                        limit
+                    }
+                });
+                
+                return response.data.map(item => ({
+                    time: new Date(item[0]),
+                    open: parseFloat(item[1]),
+                    high: parseFloat(item[2]),
+                    low: parseFloat(item[3]),
+                    close: parseFloat(item[4]),
+                    volume: parseFloat(item[5])
+                }));
+            } catch (error) {
+                throw new Error(`فشل في جلب بيانات البينانس: ${error.message}`);
+            }
+        }
+        
+        /**
+         * جلب بيانات الأسهم
+         */
+        async function fetchStockData(symbol, interval) {
+            try {
+                // في بيئة حقيقية، هنا نستخدم مفتاح API صالح
+                const response = await axios.get(apiEndpoints.alphavantage, {
+                    params: {
+                        function: interval === '1d' ? 'TIME_SERIES_DAILY' : 'TIME_SERIES_INTRADAY',
+                        symbol,
+                        outputsize: 'compact',
+                        apikey: 'DEMO' // في التطبيق الحقيقي يستبدل بمفتاح API صالح
+                    }
+                });
+                
+                const timeSeries = interval === '1d' ? 
+                    response.data['Time Series (Daily)'] : 
+                    response.data[`Time Series (${getAlphaVantageInterval(interval)})`];
+                
+                return Object.entries(timeSeries).map(([time, data]) => ({
+                    time: new Date(time),
+                    open: parseFloat(data['1. open']),
+                    high: parseFloat(data['2. high']),
+                    low: parseFloat(data['3. low']),
+                    close: parseFloat(data['4. close']),
+                    volume: parseFloat(data['5. volume'])
+                })).reverse();
+            } catch (error) {
+                throw new Error(`فشل في جلب بيانات الأسهم: ${error.message}`);
+            }
+        }
+        
+        /**
+         * جلب بيانات الفوركس
+         */
+        async function fetchForexData(symbol, interval) {
+            try {
+                // في بيئة حقيقية، هنا نستخدم مفتاح API صالح
+                const response = await axios.get(apiEndpoints.forex, {
+                    params: {
+                        symbol,
+                        interval: getTwelveDataInterval(interval),
+                        outputsize: 100,
+                        apikey: 'demo' // في التطبيق الحقيقي يستبدل بمفتاح API صالح
+                    }
+                });
+                
+                return response.data.values.map(item => ({
+                    time: new Date(item.datetime),
+                    open: parseFloat(item.open),
+                    high: parseFloat(item.high),
+                    low: parseFloat(item.low),
+                    close: parseFloat(item.close),
+                    volume: 0
+                }));
+            } catch (error) {
+                throw new Error(`فشل في جلب بيانات الفوركس: ${error.message}`);
+            }
+        }
+        
+        /**
+         * تحويل الفترة الزمنية لتتوافق مع Alpha Vantage
+         */
+        function getAlphaVantageInterval(interval) {
+            switch (interval) {
+                case '1h': return '60min';
+                case '4h': return '60min'; // AlphaVantage لا يدعم 4h مباشرة
+                case '1d': return 'Daily';
+                case '1w': return 'Weekly';
+                default: return '60min';
+            }
+        }
+        
+        /**
+         * تحويل الفترة الزمنية لتتوافق مع Twelve Data
+         */
+        function getTwelveDataInterval(interval) {
+            switch (interval) {
+                case '1h': return '1h';
+                case '4h': return '4h';
+                case '1d': return '1day';
+                case '1w': return '1week';
+                default: return '1h';
+            }
+        }
+        
+        /**
+         * إجراء التحليل الفني الكامل
+         */
+        function performTechnicalAnalysis(candles) {
+            const results = {
+                direction: "محايد",
+                confidence: 50,
+                reasons: [],
+                indicators: {}
+            };
+            
+            // 1. تحليل أنماط الشموع اليابانية
+            const candleAnalysis = analyzeCandlePatterns(candles);
+            if (candleAnalysis) {
+                results.reasons.push(candleAnalysis.reason);
+                results.confidence += candleAnalysis.effect;
+                results.indicators.candlePattern = candleAnalysis.pattern;
+            }
+            
+            // 2. تحليل الاتجاه العام
+            const trendAnalysis = analyzeMarketTrend(candles);
+            results.reasons.push(trendAnalysis.reason);
+            results.confidence += trendAnalysis.effect;
+            results.indicators.trend = trendAnalysis.trend;
+            
+            // 3. تحليل مستويات الدعم والمقاومة
+            const supportResistance = analyzeSupportResistance(candles);
+            if (supportResistance) {
+                results.reasons.push(supportResistance.reason);
+                results.confidence += supportResistance.effect;
+                results.indicators.support = supportResistance.support;
+                results.indicators.resistance = supportResistance.resistance;
+            }
+            
+            // 4. تحليل المؤشرات الفنية
+            const technicalIndicators = calculateTechnicalIndicators(candles);
+            results.indicators.technical = technicalIndicators;
+            
+            // RSI
+            if (technicalIndicators.rsi) {
+                const rsiAnalysis = analyzeRSI(technicalIndicators.rsi);
+                results.reasons.push(rsiAnalysis.reason);
+                results.confidence += rsiAnalysis.effect;
+            }
+            
+            // MACD
+            if (technicalIndicators.macd) {
+                const macdAnalysis = analyzeMACD(technicalIndicators.macd);
+                if (macdAnalysis) {
+                    results.reasons.push(macdAnalysis.reason);
+                    results.confidence += macdAnalysis.effect;
+                }
+            }
+            
+            // تحديد الاتجاه النهائي بناء على الثقة
+            if (results.confidence > 65) {
+                results.direction = "شراء";
+            } else if (results.confidence < 35) {
+                results.direction = "بيع";
+            }
+            
+            // ضمان أن الثقة بين 0 و 100
+            results.confidence = Math.max(0, Math.min(100, results.confidence));
+            
+            return results;
+        }
+        
+        /**
+         * تحليل أنماط الشموع اليابانية
+         */
+        function analyzeCandlePatterns(candles) {
+            if (!candles || candles.length < 3) return null;
+            
+            const current = candles[candles.length - 1];
+            const prev = candles[candles.length - 2];
+            const prevPrev = candles[candles.length - 3];
+            
+            // حساب أطوال الشمعة الحالية
+            const bodySize = Math.abs(current.close - current.open);
+            const upperWick = current.high - Math.max(current.open, current.close);
+            const lowerWick = Math.min(current.open, current.close) - current.low;
+            const totalRange = current.high - current.low;
+            
+            // 1. نماذج الانعكاس الصعودي
+            // Hammer
+            if (lowerWick >= 2 * bodySize && 
+                upperWick <= bodySize * 0.3 && 
+                current.close > current.open) {
+                return {
+                    pattern: 'Hammer',
+                    reason: 'نموذج Hammer (انعكاس صعودي)',
+                    effect: 15
+                };
+            }
+            
+            // Bullish Engulfing
+            if (current.close > current.open && 
+                prev.close < prev.open && 
+                current.open < prev.close && 
+                current.close > prev.open) {
+                return {
+                    pattern: 'Bullish Engulfing',
+                    reason: 'نموذج Bullish Engulfing (إشارة شراء قوية)',
+                    effect: 20
+                };
+            }
+            
+            // Morning Star
+            if (prevPrev.close < prevPrev.open &&
+                Math.abs(prev.close - prev.open) < (prev.high - prev.low) * 0.3 &&
+                current.close > current.open &&
+                current.close > (prevPrev.open + prevPrev.close) / 2) {
+                return {
+                    pattern: 'Morning Star',
+                    reason: 'نموذج Morning Star (انعكاس صعودي قوي)',
+                    effect: 25
+                };
+            }
+            
+            // 2. نماذج الانعكاس الهبوطي
+            // Shooting Star
+            if (upperWick >= 2 * bodySize && 
+                lowerWick <= bodySize * 0.3 && 
+                current.close < current.open) {
+                return {
+                    pattern: 'Shooting Star',
+                    reason: 'نموذج Shooting Star (انعكاس هبوطي)',
+                    effect: -15
+                };
+            }
+            
+            // Bearish Engulfing
+            if (current.close < current.open && 
+                prev.close > prev.open && 
+                current.open > prev.close && 
+                current.close < prev.open) {
+                return {
+                    pattern: 'Bearish Engulfing',
+                    reason: 'نموذج Bearish Engulfing (إشارة بيع قوية)',
+                    effect: -20
+                };
+            }
+            
+            // Evening Star
+            if (prevPrev.close > prevPrev.open &&
+                Math.abs(prev.close - prev.open) < (prev.high - prev.low) * 0.3 &&
+                current.close < current.open &&
+                current.close < (prevPrev.open + prevPrev.close) / 2) {
+                return {
+                    pattern: 'Evening Star',
+                    reason: 'نموذج Evening Star (انعكاس هبوطي قوي)',
+                    effect: -25
+                };
+            }
+            
+            return null;
+        }
+        
+        /**
+         * تحليل الاتجاه العام للسوق
+         */
+        function analyzeMarketTrend(candles, period = 20) {
+            if (candles.length < period) {
+                return {
+                    trend: 'غير محدد',
+                    reason: 'لا يوجد بيانات كافية لتحديد الاتجاه',
+                    effect: 0
+                };
+            }
+            
+            const recentCandles = candles.slice(-period);
+            const sum = recentCandles.reduce((acc, candle) => acc + (candle.close - candle.open), 0);
+            const avg = sum / period;
+            
+            if (avg > 0.02 * recentCandles[0].open) {
+                return {
+                    trend: 'صعودي',
+                    reason: 'الاتجاه العام صعودي على المدى المتوسط',
+                    effect: 10
+                };
+            } else if (avg < -0.02 * recentCandles[0].open) {
+                return {
+                    trend: 'هبوطي',
+                    reason: 'الاتجاه العام هبوطي على المدى المتوسط',
+                    effect: -10
+                };
+            } else {
+                return {
+                    trend: 'جانبي',
+                    reason: 'السوق في نطاق جانبي',
+                    effect: -5
+                };
+            }
+        }
+        
+        /**
+         * تحليل مستويات الدعم والمقاومة
+         */
+        function analyzeSupportResistance(candles, lookback = 50) {
+            if (candles.length < lookback) return null;
+            
+            const recentPrices = candles.slice(-lookback).map(c => c.close);
+            const currentPrice = candles[candles.length - 1].close;
+            const minPrice = Math.min(...recentPrices);
+            const maxPrice = Math.max(...recentPrices);
+            const range = maxPrice - minPrice;
+            
+            // تحديد إذا كان السعر قريب من مقاومة أو دعم
+            const nearResistance = (maxPrice - currentPrice) < 0.02 * range;
+            const nearSupport = (currentPrice - minPrice) < 0.02 * range;
+            
+            if (nearResistance) {
+                return {
+                    support: minPrice,
+                    resistance: maxPrice,
+                    reason: `السعر قريب من مستوى المقاومة عند ${maxPrice.toFixed(2)}`,
+                    effect: -15
+                };
+            } else if (nearSupport) {
+                return {
+                    support: minPrice,
+                    resistance: maxPrice,
+                    reason: `السعر قريب من مستوى الدعم عند ${minPrice.toFixed(2)}`,
+                    effect: 15
+                };
+            }
+            
+            return null;
+        }
+        
+        /**
+         * حساب المؤشرات الفنية
+         */
+        function calculateTechnicalIndicators(candles) {
+            const indicators = {};
+            
+            // RSI (مؤشر القوة النسبية)
+            if (candles.length >= 14) {
+                indicators.rsi = calculateRSI(candles);
+            }
+            
+            // MACD
+            if (candles.length >= 26) {
+                indicators.macd = calculateMACD(candles);
+            }
+            
+            return indicators;
+        }
+        
+        /**
+         * حساب مؤشر القوة النسبية (RSI)
+         */
+        function calculateRSI(candles, period = 14) {
+            if (candles.length < period + 1) return null;
+            
+            let gains = 0;
+            let losses = 0;
+            
+            // حساب المتوسط الأولي للمكاسب والخسائر
+            for (let i = 1; i <= period; i++) {
+                const change = candles[i].close - candles[i - 1].close;
+                if (change > 0) {
+                    gains += change;
+                } else {
+                    losses += Math.abs(change);
+                }
+            }
+            
+            let avgGain = gains / period;
+            let avgLoss = losses / period;
+            
+            // حساب القيم اللاحقة
+            for (let i = period + 1; i < candles.length; i++) {
+                const change = candles[i].close - candles[i - 1].close;
+                let currentGain = 0;
+                let currentLoss = 0;
+                
+                if (change > 0) {
+                    currentGain = change;
+                } else {
+                    currentLoss = Math.abs(change);
+                }
+                
+                avgGain = (avgGain * (period - 1) + currentGain) / period;
+                avgLoss = (avgLoss * (period - 1) + currentLoss) / period;
+            }
+            
+            const rs = avgLoss === 0 ? 100 : avgGain / avgLoss;
+            return 100 - (100 / (1 + rs));
+        }
+        
+        /**
+         * تحليل مؤشر RSI
+         */
+        function analyzeRSI(rsiValue) {
+            if (rsiValue > 70) {
+                return {
+                    reason: `RSI عند ${rsiValue.toFixed(2)} (تشبع شرائي)`,
+                    effect: -15
+                };
+            } else if (rsiValue < 30) {
+                return {
+                    reason: `RSI عند ${rsiValue.toFixed(2)} (تشبع بيعي)`,
+                    effect: 15
+                };
+            } else {
+                return {
+                    reason: `RSI عند ${rsiValue.toFixed(2)} (في النطاق الطبيعي)`,
+                    effect: 0
+                };
+            }
+        }
+        
+        /**
+         * حساب مؤشر MACD
+         */
+        function calculateMACD(candles, fastPeriod = 12, slowPeriod = 26, signalPeriod = 9) {
+            if (candles.length < slowPeriod + signalPeriod) return null;
+            
+            // حساب المتوسطات المتحركة الأسية
+            const emaFast = calculateEMA(candles, fastPeriod);
+            const emaSlow = calculateEMA(candles, slowPeriod);
+            
+            // حساب خط MACD
+            const macdLine = [];
+            for (let i = 0; i < emaFast.length; i++) {
+                macdLine.push(emaFast[i] - emaSlow[i]);
+            }
+            
+            // حساب خط الإشارة (EMA لخط MACD)
+            const signalLine = calculateEMAForArray(macdLine.slice(slowPeriod - fastPeriod), signalPeriod);
+            
+            // حساب الهيستوجرام
+            const histogram = [];
+            for (let i = 0; i < signalLine.length; i++) {
+                histogram.push(macdLine[i + slowPeriod - fastPeriod + signalPeriod - 1] - signalLine[i]);
+            }
+            
+            return {
+                macdLine: macdLine[macdLine.length - 1],
+                signalLine: signalLine[signalLine.length - 1],
+                histogram: histogram[histogram.length - 1]
+            };
+        }
+        
+        /**
+         * حساب المتوسط المتحرك الأسي (EMA)
+         */
+        function calculateEMA(candles, period) {
+            const ema = [];
+            const multiplier = 2 / (period + 1);
+            
+            // حساب SMA الأولي
+            let sum = 0;
+            for (let i = 0; i < period; i++) {
+                sum += candles[i].close;
+            }
+            ema.push(sum / period);
+            
+            // حساب EMA للفترات اللاحقة
+            for (let i = period; i < candles.length; i++) {
+                ema.push((candles[i].close - ema[ema.length - 1]) * multiplier + ema[ema.length - 1]);
+            }
+            
+            return ema;
+        }
+        
+        /**
+         * حساب EMA لمصفوفة من القيم
+         */
+        function calculateEMAForArray(values, period) {
+            const ema = [];
+            const multiplier = 2 / (period + 1);
+            
+            // حساب SMA الأولي
+            let sum = 0;
+            for (let i = 0; i < period; i++) {
+                sum += values[i];
+            }
+            ema.push(sum / period);
+            
+            // حساب EMA للفترات اللاحقة
+            for (let i = period; i < values.length; i++) {
+                ema.push((values[i] - ema[ema.length - 1]) * multiplier + ema[ema.length - 1]);
+            }
+            
+            return ema;
+        }
+        
+        /**
+         * تحليل مؤشر MACD
+         */
+        function analyzeMACD(macdData) {
+            if (macdData.macdLine > macdData.signalLine && macdData.histogram > 0) {
+                return {
+                    reason: 'MACD فوق خط الإشارة (إشارة شراء)',
+                    effect: 10
+                };
+            } else if (macdData.macdLine < macdData.signalLine && macdData.histogram < 0) {
+                return {
+                    reason: 'MACD تحت خط الإشارة (إشارة بيع)',
+                    effect: -10
+                };
+            }
+            return null;
+        }
+        
+        /**
+         * عرض النتائج في الواجهة
+         */
+        function displayResults(results) {
+            // تحديث التوصية
+            elements.prediction.textContent = `التوصية: ${results.direction}`;
+            elements.prediction.className = `prediction ${
+                results.direction === "شراء" ? "buy" : 
+                results.direction === "بيع" ? "sell" : "neutral"
+            }`;
+            
+            // تحديث نسبة الثقة
+            elements.confidenceValue.textContent = `${Math.round(results.confidence)}%`;
+            elements.confidenceBar.style.width = `${results.confidence}%`;
+            elements.confidenceBar.style.backgroundColor = 
+                results.confidence > 65 ? 'var(--buy-color)' : 
+                results.confidence < 35 ? 'var(--sell-color)' : 'var(--neutral-color)';
+            
+            // تحديث قائمة الأسباب
+            elements.reasonsList.innerHTML = '';
+            if (results.reasons.length > 0) {
+                results.reasons.forEach(reason => {
+                    const li = document.createElement('li');
+                    li.textContent = reason;
+                    elements.reasonsList.appendChild(li);
+                });
+            } else {
+                const li = document.createElement('li');
+                li.textContent = 'لا توجد إشارات واضحة';
+                elements.reasonsList.appendChild(li);
+            }
+            
+            // تحديث وقت آخر تحليل
+            const now = new Date();
+            elements.lastUpdate.textContent = `آخر تحديث: ${now.toLocaleTimeString()} - ${now.toLocaleDateString()}`;
+            
+            // إظهار نتائج التحليل
+            elements.resultContainer.style.display = 'block';
+        }
+        
+        /**
+         * رسم الرسم البياني للأسعار
+         */
+        function renderPriceChart(candles, symbol) {
+            const ctx = elements.priceChart.getContext('2d');
+            
+            // إعداد بيانات الرسم البياني
+            const labels = candles.map(c => c.time.toLocaleDateString());
+            const data = candles.map(c => c.close);
+            
+            // إذا كان هناك رسم بياني موجود، نقوم بتدميره أولاً
+            if (chartInstance) {
+                chartInstance.destroy();
+            }
+            
+            // إنشاء رسم بياني جديد
+            chartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: `سعر ${symbol}`,
+                        data: data,
+                        borderColor: 'var(--primary-color)',
+                        backgroundColor: 'rgba(52, 152, 219, 0.1)',
+                        borderWidth: 2,
+                        fill: true,
+                        tension: 0.1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                            rtl: true
+                        },
+                        tooltip: {
+                            rtl: true,
+                            callbacks: {
+                                label: function(context) {
+                                    return `السعر: ${context.parsed.y.toFixed(2)}`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            ticks: {
+                                maxRotation: 45,
+                                minRotation: 45
+                            }
+                        },
+                        y: {
+                            ticks: {
+                                callback: function(value) {
+                                    return value.toFixed(2);
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        
+        /**
+         * إظهار حالة التحميل
+         */
+        function showLoading() {
+            elements.loadingIndicator.style.display = 'block';
+            elements.resultContainer.style.display = 'none';
+            elements.errorDisplay.style.display = 'none';
+        }
+        
+        /**
+         * إخفاء حالة التحميل
+         */
+        function hideLoading() {
+            elements.loadingIndicator.style.display = 'none';
+        }
+        
+        /**
+         * عرض رسالة خطأ
+         */
+        function showError(message) {
+            elements.errorDisplay.style.display = 'block';
+            elements.errorDisplay.innerHTML = `<strong>خطأ:</strong> ${message}`;
+            elements.resultContainer.style.display = 'none';
+        }
+    </script>
 </body>
 </html>
