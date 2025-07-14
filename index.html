@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Binance Smart Predictor</title>
+  <title>أداة التنبؤ بالشمعة القادمة - Binance</title>
   <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
   <style>
     body {
@@ -14,7 +14,7 @@
       padding: 20px;
     }
     .tool-container {
-      max-width: 800px;
+      max-width: 700px;
       margin: auto;
       background: #1e293b;
       padding: 25px;
@@ -43,7 +43,7 @@
     button:hover {
       background-color: #2563eb;
     }
-    .result {
+    .result, .stats {
       margin-top: 20px;
       background: #0f172a;
       padding: 15px;
@@ -64,6 +64,10 @@
     .status span {
       font-weight: bold;
     }
+    .correct-wrong-btns button {
+      margin-top: 10px;
+      width: 49%;
+    }
     #chart {
       height: 300px;
       margin-top: 20px;
@@ -72,7 +76,7 @@
 </head>
 <body>
   <div class="tool-container">
-    <h2>📊 أداة احترافية لتحليل الشمعة القادمة - Binance</h2>
+    <h2>📊 أداة التنبؤ باتجاه الشمعة القادمة</h2>
 
     <div id="chart"></div>
 
@@ -90,10 +94,22 @@
     <div class="status" id="connectionStatus">🔌 الحالة: <span>جاري الاتصال...</span></div>
     <div class="live-data" id="liveData">📡 لا توجد بيانات حتى الآن...</div>
     <div class="result" id="result" style="display:none;"></div>
+
+    <div class="correct-wrong-btns">
+      <button onclick="recordStat(true)" style="background-color: #10b981;">✅ التوقع كان صحيح</button>
+      <button onclick="recordStat(false)" style="background-color: #ef4444;">❌ التوقع كان خاطئ</button>
+    </div>
+
+    <div class="stats" id="statsBox">
+      <h4>📈 إحصائياتك:</h4>
+      <p>✅ صحيحة: <span id="correctCount">0</span></p>
+      <p>❌ خاطئة: <span id="wrongCount">0</span></p>
+      <p>📊 نسبة النجاح: <span id="accuracy">0</span>%</p>
+    </div>
   </div>
 
   <script>
-    let socket, chart, candleSeries, candles = [];
+    let socket, chart, candleSeries;
     let latestCandle;
     const connStatus = document.getElementById("connectionStatus").querySelector("span");
     const liveDataBox = document.getElementById("liveData");
@@ -138,8 +154,6 @@
           candleSeries.update(bar);
 
           if (!k.x) {
-            candles.push(bar);
-            if (candles.length > 10) candles.shift();
             liveDataBox.innerHTML = `
               🕒 الوقت: ${new Date().toLocaleTimeString()}<br>
               📈 الإغلاق: ${bar.close}<br>
@@ -156,19 +170,36 @@
     function analyzeCandle() {
       const resultBox = document.getElementById("result");
       resultBox.style.display = "block";
-      if (candles.length < 5) {
-        resultBox.innerHTML = "⚠️ نحتاج على الأقل 5 شموع لتحليل أكثر دقة.";
+      if (!latestCandle) {
+        resultBox.innerHTML = "⚠️ لا توجد بيانات حية حالياً. انتظر قليلاً ثم حاول مرة أخرى.";
         return;
       }
 
-      const last = candles[candles.length - 1];
-      const prev = candles[candles.length - 2];
+      const open = parseFloat(latestCandle.o);
+      const close = parseFloat(latestCandle.c);
+      const high = parseFloat(latestCandle.h);
+      const low = parseFloat(latestCandle.l);
+      const volume = parseFloat(latestCandle.v);
 
-      const rsi = (last.close - prev.close) > 0 ? 60 : 40;
-      const trend = candles.slice(-5).map(c => c.close).reduce((a,b) => a + b) / 5;
-      const direction = last.close > trend ? "شراء" : "بيع";
-      const confidence = Math.abs(last.close - trend) > 0.5 ? 80 : 60;
-      const reason = `اتجاه ${direction === "شراء" ? "صاعد" : "هابط"}، متوسط آخر 5 شموع، وتغير زخم واضح.`;
+      let direction = "شراء";
+      let confidence = 50;
+      let reason = "";
+
+      const body = Math.abs(close - open);
+      const candleSize = high - low;
+
+      if (close < open) direction = "بيع";
+
+      if (body / candleSize > 0.6) {
+        confidence = 85;
+        reason = "جسم شمعة كبير وزخم قوي في الاتجاه الحالي.";
+      } else if (body / candleSize > 0.3) {
+        confidence = 70;
+        reason = "شمعة متوسطة تشير إلى احتمال استمرار الاتجاه.";
+      } else {
+        confidence = 55;
+        reason = "شمعة ضعيفة مع تذبذب، احتمال انعكاس أو تردد في السوق.";
+      }
 
       resultBox.innerHTML = `
         <strong>🔮 الشمعة التالية:</strong> ${direction}<br>
@@ -177,15 +208,38 @@
       `;
     }
 
+    function recordStat(correct) {
+      let correctCount = parseInt(localStorage.getItem("correct") || "0");
+      let wrongCount = parseInt(localStorage.getItem("wrong") || "0");
+
+      if (correct) correctCount++;
+      else wrongCount++;
+
+      localStorage.setItem("correct", correctCount);
+      localStorage.setItem("wrong", wrongCount);
+      updateStats();
+    }
+
+    function updateStats() {
+      const correct = parseInt(localStorage.getItem("correct") || "0");
+      const wrong = parseInt(localStorage.getItem("wrong") || "0");
+      const total = correct + wrong;
+      const accuracy = total > 0 ? ((correct / total) * 100).toFixed(1) : 0;
+
+      document.getElementById("correctCount").textContent = correct;
+      document.getElementById("wrongCount").textContent = wrong;
+      document.getElementById("accuracy").textContent = accuracy;
+    }
+
     document.getElementById("pair").addEventListener("change", function () {
       latestCandle = null;
-      candles = [];
       initChart();
       connectWebSocket(this.value);
     });
 
     initChart();
     connectWebSocket(document.getElementById("pair").value);
+    updateStats();
   </script>
 </body>
 </html>
