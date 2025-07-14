@@ -1,88 +1,136 @@
-<!DOCTYPE html>
-<html lang="ar">
+<!DOCTYPE html><html lang="ar">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>أداة التنبؤ باتجاه الشمعة القادمة - Binance</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>أداة التنبؤ بالشمعة القادمة - Binance</title>
   <style>
     body {
-      font-family: Tahoma, sans-serif;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
       direction: rtl;
-      background-color: #f5f5f5;
+      background-color: #0f172a;
+      color: #f1f5f9;
       padding: 20px;
     }
     .tool-container {
-      max-width: 500px;
+      max-width: 600px;
       margin: auto;
-      background: #fff;
-      padding: 20px;
+      background: #1e293b;
+      padding: 25px;
       border-radius: 16px;
-      box-shadow: 0 0 15px rgba(0,0,0,0.1);
+      box-shadow: 0 0 25px rgba(0,0,0,0.3);
     }
     select, button {
       width: 100%;
-      padding: 10px;
+      padding: 12px;
       margin-top: 10px;
       font-size: 16px;
       border-radius: 10px;
-      border: 1px solid #ccc;
+      border: none;
+      box-sizing: border-box;
+    }
+    select {
+      background: #334155;
+      color: #fff;
     }
     button {
       background-color: #3b82f6;
       color: white;
-      border: none;
       cursor: pointer;
+      transition: 0.3s;
     }
     button:hover {
       background-color: #2563eb;
     }
-    .result {
+    .result, .stats {
       margin-top: 20px;
-      background: #f0f9ff;
+      background: #0f172a;
       padding: 15px;
-      border-radius: 10px;
-      border: 1px solid #d1eaff;
+      border-radius: 12px;
+      border: 1px solid #475569;
     }
-    .loading {
-      text-align: center;
+    .live-data {
+      font-size: 14px;
       margin-top: 15px;
+      background: #334155;
+      padding: 10px;
+      border-radius: 10px;
+    }
+    .status {
+      margin-top: 10px;
+      font-size: 14px;
+    }
+    .status span {
+      font-weight: bold;
+    }
+    .correct-wrong-btns button {
+      margin-top: 10px;
+      width: 49%;
     }
   </style>
 </head>
 <body>
   <div class="tool-container">
-    <h2>🔍 أداة تحليل الشمعة القادمة - Binance</h2>
+    <h2>📊 أداة التنبؤ باتجاه الشمعة القادمة</h2><label for="pair">🔽 اختر زوج العملة:</label>
+<select id="pair">
+  <option value="btcusdt">BTC/USDT</option>
+  <option value="ethusdt">ETH/USDT</option>
+  <option value="bnbusdt">BNB/USDT</option>
+  <option value="solusdt">SOL/USDT</option>
+  <option value="xrpusdt">XRP/USDT</option>
+</select>
 
-    <label for="pair">اختر زوج العملة:</label>
-    <select id="pair">
-      <option value="btcusdt">BTC/USDT</option>
-      <option value="ethusdt">ETH/USDT</option>
-      <option value="bnbusdt">BNB/USDT</option>
-      <option value="solusdt">SOL/USDT</option>
-      <option value="xrpusdt">XRP/USDT</option>
-      <option value="dogeusdt">DOGE/USDT</option>
-      <option value="adausdt">ADA/USDT</option>
-      <option value="trxusdt">TRX/USDT</option>
-    </select>
+<button onclick="analyzeCandle()">🔍 تحليل الشمعة</button>
 
-    <button onclick="analyzeCandle()">🔍 تحليل</button>
+<div class="status" id="connectionStatus">🔌 الحالة: <span>جاري الاتصال...</span></div>
+<div class="live-data" id="liveData">📡 لا توجد بيانات حتى الآن...</div>
+<div class="result" id="result" style="display:none;"></div>
 
-    <div class="loading" id="loading">📡 جاري جلب البيانات الحية...</div>
-    <div class="result" id="result" style="display:none;"></div>
-  </div>
+<div class="correct-wrong-btns">
+  <button onclick="recordStat(true)" style="background-color: #10b981;">✅ التوقع كان صحيح</button>
+  <button onclick="recordStat(false)" style="background-color: #ef4444;">❌ التوقع كان خاطئ</button>
+</div>
 
-  <script>
+<div class="stats" id="statsBox">
+  <h4>📈 إحصائياتك:</h4>
+  <p>✅ صحيحة: <span id="correctCount">0</span></p>
+  <p>❌ خاطئة: <span id="wrongCount">0</span></p>
+  <p>📊 نسبة النجاح: <span id="accuracy">0</span>%</p>
+</div>
+
+  </div>  <script>
     let socket;
     let latestCandle;
+    const connStatus = document.getElementById("connectionStatus").querySelector("span");
+    const liveDataBox = document.getElementById("liveData");
 
     function connectWebSocket(pair) {
       if (socket) socket.close();
       const url = `wss://stream.binance.com:9443/ws/${pair}@kline_5m`;
       socket = new WebSocket(url);
+
+      socket.onopen = () => {
+        connStatus.textContent = "🟢 متصل";
+        connStatus.style.color = "#10b981";
+      };
+
+      socket.onclose = () => {
+        connStatus.textContent = "🔴 غير متصل";
+        connStatus.style.color = "#ef4444";
+      };
+
       socket.onmessage = function (event) {
         const data = JSON.parse(event.data);
         if (data.k && !data.k.x) {
-          latestCandle = data.k; // الشمعة قيد التكوين
+          latestCandle = data.k;
+          const { o, c, h, l, v } = data.k;
+          liveDataBox.innerHTML = `
+            🕒 الوقت: ${new Date().toLocaleTimeString()}<br>
+            📈 الإغلاق: ${parseFloat(c)}<br>
+            📉 الافتتاح: ${parseFloat(o)}<br>
+            🔼 الأعلى: ${parseFloat(h)}<br>
+            🔽 الأدنى: ${parseFloat(l)}<br>
+            🔁 الحجم: ${parseFloat(v).toFixed(2)}
+          `;
         }
       };
     }
@@ -116,13 +164,13 @@
 
       if (body / candleSize > 0.6) {
         confidence = 85;
-        reason = "جسم شمعة كبير واتجاه واضح في السوق مع زخم مرتفع.";
+        reason = "جسم شمعة كبير وزخم قوي في الاتجاه الحالي.";
       } else if (body / candleSize > 0.3) {
         confidence = 70;
-        reason = "شمعة باتجاه متوسط مع احتمال استمرار الاتجاه الحالي.";
+        reason = "شمعة متوسطة تشير إلى احتمال استمرار الاتجاه.";
       } else {
         confidence = 55;
-        reason = "شمعة تذبذب مع فتائل طويلة قد تشير لتغير في الاتجاه.";
+        reason = "شمعة ضعيفة مع تذبذب، احتمال انعكاس أو تردد في السوق.";
       }
 
       resultBox.innerHTML = `
@@ -132,21 +180,35 @@
       `;
     }
 
-    const pairSelector = document.getElementById("pair");
-    pairSelector.addEventListener("change", function () {
-      document.getElementById("loading").style.display = "block";
+    function recordStat(correct) {
+      let correctCount = parseInt(localStorage.getItem("correct") || "0");
+      let wrongCount = parseInt(localStorage.getItem("wrong") || "0");
+
+      if (correct) correctCount++;
+      else wrongCount++;
+
+      localStorage.setItem("correct", correctCount);
+      localStorage.setItem("wrong", wrongCount);
+      updateStats();
+    }
+
+    function updateStats() {
+      const correct = parseInt(localStorage.getItem("correct") || "0");
+      const wrong = parseInt(localStorage.getItem("wrong") || "0");
+      const total = correct + wrong;
+      const accuracy = total > 0 ? ((correct / total) * 100).toFixed(1) : 0;
+
+      document.getElementById("correctCount").textContent = correct;
+      document.getElementById("wrongCount").textContent = wrong;
+      document.getElementById("accuracy").textContent = accuracy;
+    }
+
+    document.getElementById("pair").addEventListener("change", function () {
       latestCandle = null;
       connectWebSocket(this.value);
-      setTimeout(() => {
-        document.getElementById("loading").style.display = "none";
-      }, 3000);
     });
 
-    // الاتصال الأولي
-    connectWebSocket(pairSelector.value);
-    setTimeout(() => {
-      document.getElementById("loading").style.display = "none";
-    }, 3000);
-  </script>
-</body>
+    connectWebSocket(document.getElementById("pair").value);
+    updateStats();
+  </script></body>
 </html>
