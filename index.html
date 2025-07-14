@@ -71,12 +71,11 @@
         const closes = data.map(d => parseFloat(d[4]));
         const highs = data.map(d => parseFloat(d[2]));
         const lows = data.map(d => parseFloat(d[3]));
-
         const lastClose = closes[closes.length - 1];
         const prevClose = closes[closes.length - 2];
         const lastOpen = parseFloat(data[data.length - 1][1]);
 
-        // RSI لحظي
+        // RSI
         let gain = 0, loss = 0;
         const change = lastClose - prevClose;
         if (change > 0) gain = change;
@@ -84,7 +83,7 @@
         const rs = gain / (loss || 1);
         const rsi = 100 - (100 / (1 + rs));
 
-        // MACD لحظي
+        // MACD
         const ema = (arr, period) => {
           const k = 2 / (period + 1);
           let emaArr = [arr.slice(0, period).reduce((a, b) => a + b) / period];
@@ -106,45 +105,65 @@
         const bbUpper = avg + 2 * stdDev;
         const bbLower = avg - 2 * stdDev;
 
-        // قراءة الشمعة الحالية
+        // الشمعة الأخيرة
         const candleBody = Math.abs(lastClose - lastOpen);
         const candleType = candleBody < (Math.max(...highs) - Math.min(...lows)) * 0.2 ? "دوجي/ضعيفة" : (lastClose > lastOpen ? "صاعدة" : "هابطة");
+
+        // التقييم بالنقاط
+        let scoreBuy = 0;
+        let scoreSell = 0;
+        const indicators = [];
+
+        if (rsi < 35) { scoreBuy++; indicators.push(`RSI: ${rsi.toFixed(2)} (شراء)`); }
+        else if (rsi > 65) { scoreSell++; indicators.push(`RSI: ${rsi.toFixed(2)} (بيع)`); }
+        else indicators.push(`RSI: ${rsi.toFixed(2)} (محايد)`);
+
+        if (stochastic < 30) { scoreBuy++; indicators.push(`Stochastic: ${stochastic.toFixed(2)} (شراء)`); }
+        else if (stochastic > 70) { scoreSell++; indicators.push(`Stochastic: ${stochastic.toFixed(2)} (بيع)`); }
+        else indicators.push(`Stochastic: ${stochastic.toFixed(2)} (محايد)`);
+
+        if (macd > 0) { scoreBuy++; indicators.push(`MACD: ${macd.toFixed(4)} (صاعد)`); }
+        else if (macd < 0) { scoreSell++; indicators.push(`MACD: ${macd.toFixed(4)} (هابط)`); }
+        else indicators.push(`MACD: ${macd.toFixed(4)} (محايد)`);
+
+        if (lastClose < bbLower) { scoreBuy++; indicators.push("السعر قريب من الحد السفلي لبولينجر (شراء محتمل)"); }
+        else if (lastClose > bbUpper) { scoreSell++; indicators.push("السعر قريب من الحد العلوي لبولينجر (بيع محتمل)"); }
+        else indicators.push("السعر داخل نطاق بولينجر (محايد)");
+
+        if (candleType === "صاعدة") { scoreBuy++; indicators.push("شمعة صاعدة قوية"); }
+        else if (candleType === "هابطة") { scoreSell++; indicators.push("شمعة هابطة قوية"); }
+        else indicators.push("شمعة دوجي أو ضعيفة");
 
         // القرار
         let direction = "محايد";
         let confidence = 50;
-        let reasons = [];
-        let indicators = [];
+        let reason = "";
 
-        // شروط الشراء
-        if (rsi < 35 && stochastic < 30 && macd > 0 && lastClose > bbLower && candleType === "صاعدة") {
-          direction = "شراء (LONG)";
+        const total = Math.max(scoreBuy, scoreSell);
+
+        if (total >= 4) {
           confidence = 90;
-          reasons.push("المؤشرات اللحظية تدعم الشراء + شمعة صاعدة واضحة");
-        }
-        // شروط البيع
-        else if (rsi > 65 && stochastic > 70 && macd < 0 && lastClose < bbUpper && candleType === "هابطة") {
-          direction = "بيع (SHORT)";
-          confidence = 90;
-          reasons.push("المؤشرات اللحظية تدعم البيع + شمعة هابطة واضحة");
-        }
-        // إشارات مترددة
-        else {
-          direction = "محايد";
+        } else if (total === 3) {
+          confidence = 75;
+        } else if (total === 2) {
+          confidence = 60;
+        } else {
           confidence = 50;
-          reasons.push("لا توجد إشارات متوافقة كافية");
         }
 
-        // عرض حالة المؤشرات
-        indicators.push(`RSI: ${rsi.toFixed(2)} (${rsi < 35 ? "منطقة شراء" : rsi > 65 ? "منطقة بيع" : "محايد"})`);
-        indicators.push(`Stochastic: ${stochastic.toFixed(2)} (${stochastic < 30 ? "منطقة شراء" : stochastic > 70 ? "منطقة بيع" : "محايد"})`);
-        indicators.push(`MACD: ${macd.toFixed(4)} (${macd > 0 ? "صاعد" : macd < 0 ? "هابط" : "محايد"})`);
-        indicators.push(`موقع السعر: ${lastClose > avg ? "فوق المتوسط" : "تحت المتوسط"}`);
-        indicators.push(`نوع الشمعة الأخيرة: ${candleType}`);
+        if (scoreBuy > scoreSell) {
+          direction = "شراء (LONG)";
+          reason = `توافق ${scoreBuy} مؤشرات نحو الشراء.`;
+        } else if (scoreSell > scoreBuy) {
+          direction = "بيع (SHORT)";
+          reason = `توافق ${scoreSell} مؤشرات نحو البيع.`;
+        } else {
+          reason = "التوصية محايدة نتيجة توازن الإشارات.";
+        }
 
         document.getElementById("direction").textContent = direction;
         document.getElementById("confidence").textContent = confidence;
-        document.getElementById("reason").textContent = reasons.join("؛ ");
+        document.getElementById("reason").textContent = reason;
         document.getElementById("indicators").innerHTML = indicators.map(i => `<li>• ${i}</li>`).join("");
         document.getElementById("result").classList.remove("hidden");
 
