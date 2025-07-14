@@ -1,10 +1,8 @@
-<!DOCTYPE html>
-<html lang="ar">
+<!DOCTYPE html><html lang="ar">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>أداة التنبؤ بالشمعة القادمة - Binance</title>
-  <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
   <style>
     body {
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -14,7 +12,7 @@
       padding: 20px;
     }
     .tool-container {
-      max-width: 700px;
+      max-width: 600px;
       margin: auto;
       background: #1e293b;
       padding: 25px;
@@ -68,60 +66,42 @@
       margin-top: 10px;
       width: 49%;
     }
-    #chart {
-      height: 300px;
-      margin-top: 20px;
-    }
   </style>
 </head>
 <body>
   <div class="tool-container">
-    <h2>📊 أداة التنبؤ باتجاه الشمعة القادمة</h2>
+    <h2>📊 أداة التنبؤ باتجاه الشمعة القادمة</h2><label for="pair">🔽 اختر زوج العملة:</label>
+<select id="pair">
+  <option value="btcusdt">BTC/USDT</option>
+  <option value="ethusdt">ETH/USDT</option>
+  <option value="bnbusdt">BNB/USDT</option>
+  <option value="solusdt">SOL/USDT</option>
+  <option value="xrpusdt">XRP/USDT</option>
+</select>
 
-    <div id="chart"></div>
+<button onclick="analyzeCandle()">🔍 تحليل الشمعة</button>
 
-    <label for="pair">🔽 اختر زوج العملة:</label>
-    <select id="pair">
-      <option value="btcusdt">BTC/USDT</option>
-      <option value="ethusdt">ETH/USDT</option>
-      <option value="bnbusdt">BNB/USDT</option>
-      <option value="solusdt">SOL/USDT</option>
-      <option value="xrpusdt">XRP/USDT</option>
-    </select>
+<div class="status" id="connectionStatus">🔌 الحالة: <span>جاري الاتصال...</span></div>
+<div class="live-data" id="liveData">📡 لا توجد بيانات حتى الآن...</div>
+<div class="result" id="result" style="display:none;"></div>
 
-    <button onclick="analyzeCandle()">🔍 تحليل الشمعة</button>
+<div class="correct-wrong-btns">
+  <button onclick="recordStat(true)" style="background-color: #10b981;">✅ التوقع كان صحيح</button>
+  <button onclick="recordStat(false)" style="background-color: #ef4444;">❌ التوقع كان خاطئ</button>
+</div>
 
-    <div class="status" id="connectionStatus">🔌 الحالة: <span>جاري الاتصال...</span></div>
-    <div class="live-data" id="liveData">📡 لا توجد بيانات حتى الآن...</div>
-    <div class="result" id="result" style="display:none;"></div>
+<div class="stats" id="statsBox">
+  <h4>📈 إحصائياتك:</h4>
+  <p>✅ صحيحة: <span id="correctCount">0</span></p>
+  <p>❌ خاطئة: <span id="wrongCount">0</span></p>
+  <p>📊 نسبة النجاح: <span id="accuracy">0</span>%</p>
+</div>
 
-    <div class="correct-wrong-btns">
-      <button onclick="recordStat(true)" style="background-color: #10b981;">✅ التوقع كان صحيح</button>
-      <button onclick="recordStat(false)" style="background-color: #ef4444;">❌ التوقع كان خاطئ</button>
-    </div>
-
-    <div class="stats" id="statsBox">
-      <h4>📈 إحصائياتك:</h4>
-      <p>✅ صحيحة: <span id="correctCount">0</span></p>
-      <p>❌ خاطئة: <span id="wrongCount">0</span></p>
-      <p>📊 نسبة النجاح: <span id="accuracy">0</span>%</p>
-    </div>
-  </div>
-
-  <script>
-    let socket, chart, candleSeries;
+  </div>  <script>
+    let socket;
     let latestCandle;
     const connStatus = document.getElementById("connectionStatus").querySelector("span");
     const liveDataBox = document.getElementById("liveData");
-
-    function initChart() {
-      chart = LightweightCharts.createChart(document.getElementById("chart"), {
-        layout: { backgroundColor: '#0f172a', textColor: '#f8fafc' },
-        grid: { vertLines: { color: '#334155' }, horzLines: { color: '#334155' } },
-        timeScale: { timeVisible: true, secondsVisible: false },
-      });
-      candleSeries = chart.addCandlestickSeries();
-    }
 
     function connectWebSocket(pair) {
       if (socket) socket.close();
@@ -140,29 +120,17 @@
 
       socket.onmessage = function (event) {
         const data = JSON.parse(event.data);
-        if (data.k) {
-          const k = data.k;
-          latestCandle = k;
-
-          const bar = {
-            time: k.t / 1000,
-            open: parseFloat(k.o),
-            high: parseFloat(k.h),
-            low: parseFloat(k.l),
-            close: parseFloat(k.c),
-          };
-          candleSeries.update(bar);
-
-          if (!k.x) {
-            liveDataBox.innerHTML = `
-              🕒 الوقت: ${new Date().toLocaleTimeString()}<br>
-              📈 الإغلاق: ${bar.close}<br>
-              📉 الافتتاح: ${bar.open}<br>
-              🔼 الأعلى: ${bar.high}<br>
-              🔽 الأدنى: ${bar.low}<br>
-              🔁 الحجم: ${parseFloat(k.v).toFixed(2)}
-            `;
-          }
+        if (data.k && !data.k.x) {
+          latestCandle = data.k;
+          const { o, c, h, l, v } = data.k;
+          liveDataBox.innerHTML = `
+            🕒 الوقت: ${new Date().toLocaleTimeString()}<br>
+            📈 الإغلاق: ${parseFloat(c)}<br>
+            📉 الافتتاح: ${parseFloat(o)}<br>
+            🔼 الأعلى: ${parseFloat(h)}<br>
+            🔽 الأدنى: ${parseFloat(l)}<br>
+            🔁 الحجم: ${parseFloat(v).toFixed(2)}
+          `;
         }
       };
     }
@@ -187,8 +155,12 @@
 
       const body = Math.abs(close - open);
       const candleSize = high - low;
+      const upperWick = high - Math.max(open, close);
+      const lowerWick = Math.min(open, close) - low;
 
-      if (close < open) direction = "بيع";
+      if (close < open) {
+        direction = "بيع";
+      }
 
       if (body / candleSize > 0.6) {
         confidence = 85;
@@ -233,13 +205,10 @@
 
     document.getElementById("pair").addEventListener("change", function () {
       latestCandle = null;
-      initChart();
       connectWebSocket(this.value);
     });
 
-    initChart();
     connectWebSocket(document.getElementById("pair").value);
     updateStats();
-  </script>
-</body>
+  </script></body>
 </html>
