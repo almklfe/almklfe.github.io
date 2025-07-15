@@ -1,265 +1,133 @@
 <!DOCTYPE html>
-<html lang="ar">
+<html lang="ar" dir="rtl">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>أداة متكاملة للتنبؤ بالشمعة</title>
-  <script src="https://cdn.jsdelivr.net/npm/lightweight-charts@3.8.0/dist/lightweight-charts.standalone.production.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+  <title>تحليل لحظي | Pocket Option</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <style>
     body {
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      direction: rtl;
-      background-color: #0f172a;
-      color: #f1f5f9;
-      padding: 20px;
+      background-color: #1f1f23;
+      color: #fff;
+      font-family: Tahoma, sans-serif;
       margin: 0;
+      padding: 0;
     }
-    .tool-container {
-      max-width: 800px;
-      margin: auto;
-      background: #1e293b;
-      padding: 25px;
-      border-radius: 16px;
-      box-shadow: 0 0 25px rgba(0,0,0,0.3);
+    .header {
+      background-color: #2a2a2e;
+      padding: 20px;
+      text-align: center;
     }
-    #chart {
-      height: 400px;
-      margin: 20px 0;
-      width: 100%;
+    .header h1 {
+      margin: 0;
+      font-size: 22px;
     }
-    select, button {
-      width: 100%;
-      padding: 12px;
-      margin-top: 10px;
-      border-radius: 8px;
-      border: none;
-      font-size: 16px;
+    .content {
+      max-width: 480px;
+      margin: 30px auto;
+      padding: 20px;
+      background-color: #292a2d;
+      border-radius: 12px;
+      box-shadow: 0 0 10px #000;
     }
-    select {
-      background: #334155;
-      color: white;
+    .section {
+      margin-bottom: 20px;
     }
-    button {
-      background: #3b82f6;
-      color: white;
-      cursor: pointer;
+    .section-title {
+      font-size: 18px;
+      margin-bottom: 10px;
+      border-bottom: 1px solid #444;
+      padding-bottom: 5px;
     }
-    button:disabled {
-      background: #64748b;
-      cursor: not-allowed;
+    .signal {
+      font-size: 24px;
+      font-weight: bold;
+      margin: 10px 0;
+      color: #00e676;
     }
-    .status {
-      margin: 15px 0;
-      padding: 10px;
-      border-radius: 8px;
-      background: #1e293b;
+    .signal.sell {
+      color: #ff3e1f;
+    }
+    .confidence {
+      font-size: 18px;
+      color: #ccc;
+    }
+    .footer {
+      text-align: center;
+      padding: 15px;
+      font-size: 13px;
+      color: #888;
     }
   </style>
 </head>
 <body>
-  <div class="tool-container">
-    <h1 style="text-align:center;color:#3b82f6">أداة التحليل الفني المتقدم</h1>
-    
-    <div id="chart"></div>
-    
-    <select id="pairSelect">
-      <option value="BTCUSDT">BTC/USDT</option>
-      <option value="ETHUSDT">ETH/USDT</option>
-      <option value="BNBUSDT">BNB/USDT</option>
-    </select>
-    
-    <button id="analyzeBtn">تحليل الشمعة</button>
-    
-    <div class="status" id="status">
-      الحالة: <span id="statusText">جاري التهيئة...</span>
+
+  <div class="header">
+    <h1>تحليل الرسم البياني - مباشر</h1>
+  </div>
+
+  <div class="content">
+    <div class="section">
+      <div class="section-title">البيانات الحية</div>
+      <div>زوج العملة: <strong id="symbol">EURUSD</strong></div>
+      <div>الفريم: 1 دقيقة</div>
     </div>
-    
-    <div id="result" style="display:none; margin-top:20px; padding:15px; background:#0f172a; border-radius:8px;">
-      <h3>نتائج التحليل</h3>
-      <div id="analysisResult"></div>
+
+    <div class="section">
+      <div class="section-title">إشارة التداول</div>
+      <div class="signal" id="signal">جاري الاتصال...</div>
+      <div class="confidence" id="confidence">نسبة الثقة: --%</div>
     </div>
   </div>
 
+  <div class="footer">
+    نسخة تجريبية لتحليل السوق المباشر | Pocket Style 🔍
+  </div>
+
   <script>
-    // العناصر الرئيسية
-    const pairSelect = document.getElementById('pairSelect');
-    const analyzeBtn = document.getElementById('analyzeBtn');
-    const statusText = document.getElementById('statusText');
-    const resultDiv = document.getElementById('result');
-    const analysisResult = document.getElementById('analysisResult');
-    
-    // متغيرات الرسم البياني
-    let chart;
-    let candleSeries;
-    let socket;
-    let candleHistory = [];
-    
-    // تهيئة الرسم البياني
-    function initChart() {
-      chart = LightweightCharts.createChart(document.getElementById('chart'), {
-        width: document.getElementById('chart').clientWidth,
-        height: 400,
-        layout: {
-          backgroundColor: '#0f172a',
-          textColor: '#f8fafc'
-        },
-        grid: {
-          vertLines: { color: '#334155' },
-          horzLines: { color: '#334155' }
-        },
-        timeScale: {
-          timeVisible: true,
-          secondsVisible: false
+    const symbol = "EURUSD_otc"; // يمكنك تغييره لأي زوج
+    document.getElementById("symbol").innerText = symbol.replace('_otc', '');
+
+    const ws = new WebSocket("wss://api-eu.po.market");
+
+    ws.onopen = () => {
+      ws.send(JSON.stringify({
+        "event": "subscribe",
+        "channel": "candle-generated",
+        "symbol": symbol,
+        "period": 60 // فريم الدقيقة
+      }));
+    };
+
+    ws.onmessage = (msg) => {
+      const json = JSON.parse(msg.data);
+      if (json?.event === "candle-generated") {
+        const candle = json.data;
+        const open = parseFloat(candle.open);
+        const close = parseFloat(candle.close);
+
+        const signalEl = document.getElementById("signal");
+        const confidenceEl = document.getElementById("confidence");
+
+        if (close > open) {
+          signalEl.innerText = "شراء 🔼";
+          signalEl.classList.remove("sell");
+          confidenceEl.innerText = `نسبة الثقة: ${((close - open) / open * 100).toFixed(2)}%`;
+        } else if (close < open) {
+          signalEl.innerText = "بيع 🔽";
+          signalEl.classList.add("sell");
+          confidenceEl.innerText = `نسبة الثقة: ${((open - close) / open * 100).toFixed(2)}%`;
+        } else {
+          signalEl.innerText = "محايد ⏸️";
+          signalEl.classList.remove("sell");
+          confidenceEl.innerText = `نسبة الثقة: 0%`;
         }
-      });
-      
-      candleSeries = chart.addCandlestickSeries({
-        upColor: '#10b981',
-        downColor: '#ef4444',
-        borderDownColor: '#ef4444',
-        borderUpColor: '#10b981',
-        wickDownColor: '#ef4444',
-        wickUpColor: '#10b981'
-      });
-    }
-    
-    // جلب البيانات التاريخية
-    async function fetchHistoricalData(symbol) {
-      try {
-        statusText.textContent = 'جاري جلب البيانات التاريخية...';
-        const response = await axios.get(`https://api.binance.com/api/v3/klines`, {
-          params: {
-            symbol: symbol,
-            interval: '5m',
-            limit: 100
-          }
-        });
-        
-        const data = response.data.map(d => ({
-          time: d[0] / 1000,
-          open: parseFloat(d[1]),
-          high: parseFloat(d[2]),
-          low: parseFloat(d[3]),
-          close: parseFloat(d[4])
-        }));
-        
-        candleSeries.setData(data);
-        candleHistory = data;
-        statusText.textContent = 'جاهز للتحليل';
-        analyzeBtn.disabled = false;
-      } catch (error) {
-        statusText.textContent = 'خطأ في جلب البيانات التاريخية';
-        console.error(error);
       }
-    }
-    
-    // الاتصال بويب سوكيت للبيانات الحية
-    function connectWebSocket(symbol) {
-      if (socket) socket.close();
-      
-      socket = new WebSocket(`wss://stream.binance.com:9443/ws/${symbol.toLowerCase()}@kline_5m`);
-      
-      socket.onopen = () => {
-        statusText.textContent = 'متصل بالبيانات الحية';
-      };
-      
-      socket.onmessage = (event) => {
-        const data = JSON.parse(event.data);
-        if (data.k) {
-          const candle = {
-            time: data.k.t / 1000,
-            open: parseFloat(data.k.o),
-            high: parseFloat(data.k.h),
-            low: parseFloat(data.k.l),
-            close: parseFloat(data.k.c)
-          };
-          
-          candleSeries.update(candle);
-          
-          // تخزين الشمعة إذا كانت مغلقة
-          if (data.k.x) {
-            candleHistory.unshift(candle);
-            if (candleHistory.length > 200) candleHistory.pop();
-          }
-        }
-      };
-      
-      socket.onerror = (error) => {
-        statusText.textContent = 'خطأ في الاتصال';
-        console.error(error);
-      };
-    }
-    
-    // تحليل الشمعة الحالية
-    function analyzeCurrentCandle() {
-      if (candleHistory.length < 2) {
-        analysisResult.innerHTML = '<p style="color:#f59e0b">لا توجد بيانات كافية للتحليل</p>';
-        return;
-      }
-      
-      const currentCandle = candleHistory[0];
-      const prevCandle = candleHistory[1];
-      
-      // تحليل اتجاه الشمعة
-      const isBullish = currentCandle.close > currentCandle.open;
-      const bodySize = Math.abs(currentCandle.close - currentCandle.open);
-      const totalRange = currentCandle.high - currentCandle.low;
-      const bodyRatio = totalRange > 0 ? (bodySize / totalRange) : 0;
-      
-      // حساب نسبة الثقة
-      let confidence = 50;
-      if (bodyRatio > 0.7) confidence += 25;
-      else if (bodyRatio > 0.4) confidence += 15;
-      
-      // تحليل الحجم
-      const volumes = candleHistory.slice(0, 5).map(c => Math.abs(c.close - c.open));
-      const avgVolume = volumes.reduce((a, b) => a + b, 0) / volumes.length;
-      const volumeRatio = bodySize / avgVolume;
-      
-      if (volumeRatio > 1.5) confidence += 15;
-      else if (volumeRatio > 1.2) confidence += 10;
-      
-      // عرض النتائج
-      resultDiv.style.display = 'block';
-      analysisResult.innerHTML = `
-        <div style="margin-bottom:15px;">
-          <h4 style="color:${isBullish ? '#10b981' : '#ef4444'}">الاتجاه المتوقع: ${isBullish ? 'صعودي' : 'هبوطي'}</h4>
-          <p>نسبة الثقة: <strong>${Math.min(95, Math.max(5, confidence))}%</strong></p>
-        </div>
-        <div>
-          <h4>تفاصيل التحليل:</h4>
-          <ul>
-            <li>نسبة الجسم إلى المدى الكلي: ${(bodyRatio * 100).toFixed(1)}%</li>
-            <li>نسبة الحجم إلى المتوسط: ${(volumeRatio * 100).toFixed(1)}%</li>
-            <li>حجم الشمعة: ${(currentCandle.high - currentCandle.low).toFixed(2)} نقطة</li>
-          </ul>
-        </div>
-      `;
-    }
-    
-    // تغيير الزوج المختار
-    pairSelect.addEventListener('change', async () => {
-      const pair = pairSelect.value;
-      analyzeBtn.disabled = true;
-      statusText.textContent = 'جاري تحديث البيانات...';
-      
-      await fetchHistoricalData(pair);
-      connectWebSocket(pair);
-    });
-    
-    // زر التحليل
-    analyzeBtn.addEventListener('click', analyzeCurrentCandle);
-    
-    // بدء التطبيق
-    initChart();
-    fetchHistoricalData(pairSelect.value);
-    connectWebSocket(pairSelect.value);
-    
-    // إعادة حجم الرسم البياني عند تغيير حجم النافذة
-    window.addEventListener('resize', () => {
-      chart.applyOptions({ width: document.getElementById('chart').clientWidth });
-    });
+    };
+
+    ws.onerror = () => {
+      document.getElementById("signal").innerText = "فشل الاتصال بالسيرفر";
+      document.getElementById("signal").classList.add("sell");
+    };
   </script>
 </body>
 </html>
