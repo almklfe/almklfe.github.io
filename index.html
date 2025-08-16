@@ -1,630 +1,948 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>أداة تحليل الشموع M1 - Pocket Option</title>
-    <style>
-        :root {
-            --primary-color: #3498db;
-            --success-color: #2ecc71;
-            --danger-color: #e74c3c;
-            --warning-color: #f39c12;
-            --dark-color: #2c3e50;
-            --light-color: #ecf0f1;
-            --gray-color: #95a5a6;
-        }
-        
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        }
-        
-        body {
-            background-color: #f5f7fa;
-            color: #333;
-            line-height: 1.6;
-        }
-        
-        .container {
-            max-width: 800px;
-            margin: 20px auto;
-            padding: 20px;
-            background: white;
-            border-radius: 10px;
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
-        }
-        
-        h1 {
-            text-align: center;
-            color: var(--dark-color);
-            margin-bottom: 30px;
-            font-size: 24px;
-        }
-        
-        .control-panel {
-            background: var(--light-color);
-            padding: 20px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-        }
-        
-        .form-group {
-            margin-bottom: 15px;
-        }
-        
-        label {
-            display: block;
-            margin-bottom: 5px;
-            font-weight: bold;
-            color: var(--dark-color);
-        }
-        
-        select, button {
-            width: 100%;
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            font-size: 16px;
-        }
-        
-        button {
-            background-color: var(--primary-color);
-            color: white;
-            border: none;
-            cursor: pointer;
-            font-weight: bold;
-            transition: background-color 0.3s;
-            margin-top: 10px;
-        }
-        
-        button:hover {
-            background-color: #2980b9;
-        }
-        
-        button:disabled {
-            background-color: var(--gray-color);
-            cursor: not-allowed;
-        }
-        
-        .result-container {
-            display: none;
-            margin-top: 20px;
-            padding: 20px;
-            border-radius: 8px;
-            animation: fadeIn 0.5s;
-        }
-        
-        @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
-        }
-        
-        .prediction {
-            text-align: center;
-            font-size: 24px;
-            font-weight: bold;
-            margin: 20px 0;
-        }
-        
-        .buy {
-            color: var(--success-color);
-        }
-        
-        .sell {
-            color: var(--danger-color);
-        }
-        
-        .confidence {
-            height: 20px;
-            background-color: #eee;
-            border-radius: 10px;
-            margin: 15px 0;
-            overflow: hidden;
-        }
-        
-        .confidence-bar {
-            height: 100%;
-            background: linear-gradient(to right, #e74c3c, #f39c12, #2ecc71);
-            width: 0%;
-            transition: width 1s;
-        }
-        
-        .confidence-value {
-            text-align: center;
-            font-weight: bold;
-            margin-top: 5px;
-        }
-        
-        .reasons {
-            background: var(--light-color);
-            padding: 15px;
-            border-radius: 8px;
-            margin-top: 20px;
-        }
-        
-        .loading {
-            text-align: center;
-            display: none;
-            margin: 20px 0;
-        }
-        
-        .spinner {
-            border: 5px solid #f3f3f3;
-            border-top: 5px solid var(--primary-color);
-            border-radius: 50%;
-            width: 50px;
-            height: 50px;
-            animation: spin 1s linear infinite;
-            margin: 0 auto 15px;
-        }
-        
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        
-        .status {
-            text-align: center;
-            margin: 10px 0;
-            font-style: italic;
-            color: var(--gray-color);
-        }
-        
-        .chart-container {
-            height: 300px;
-            margin: 20px 0;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-        }
-        
-        .price-display {
-            text-align: center;
-            font-size: 18px;
-            margin: 10px 0;
-        }
-        
-        .current-candle {
-            background: #f8f9fa;
-            padding: 10px;
-            border-radius: 8px;
-            margin: 10px 0;
-        }
-        
-        .candle-info {
-            display: flex;
-            justify-content: space-between;
-        }
-        
-        @media (max-width: 600px) {
-            .container {
-                padding: 15px;
-                margin: 10px;
-            }
-            
-            h1 {
-                font-size: 20px;
-            }
-        }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>أداة احترافية لتحليل الرسم البياني</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #4361ee;
+      --primary-dark: #3a56d4;
+      --success: #2ecc71;
+      --danger: #e74c3c;
+      --light: #f8f9fa;
+      --dark: #212529;
+      --gray: #6c757d;
+      --light-gray: #e9ecef;
+      --border-radius: 12px;
+      --box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+      --transition: all 0.3s ease;
+    }
+    
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    
+    body {
+      font-family: 'Tajawal', sans-serif;
+      background-color: #f5f7ff;
+      color: var(--dark);
+      line-height: 1.6;
+      padding: 20px;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    
+    .card {
+      background-color: white;
+      padding: 30px;
+      border-radius: var(--border-radius);
+      box-shadow: var(--box-shadow);
+      width: 100%;
+      max-width: 600px;
+      margin: 20px auto;
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      right: 0;
+      width: 100%;
+      height: 8px;
+      background: linear-gradient(90deg, #4361ee, #3a0ca3);
+    }
+    
+    .card-header {
+      text-align: center;
+      margin-bottom: 25px;
+      position: relative;
+    }
+    
+    .card-header h2 {
+      color: var(--primary);
+      font-size: 1.8rem;
+      font-weight: 700;
+      margin-bottom: 10px;
+    }
+    
+    .card-header p {
+      color: var(--gray);
+      font-size: 1rem;
+    }
+    
+    .connection-status {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 20px;
+      background-color: var(--light);
+      padding: 10px 15px;
+      border-radius: 50px;
+      font-size: 0.9rem;
+    }
+    
+    .status-indicator {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      margin-left: 8px;
+    }
+    
+    .online {
+      background-color: var(--success);
+      box-shadow: 0 0 10px rgba(46, 204, 113, 0.5);
+    }
+    
+    .offline {
+      background-color: var(--danger);
+      box-shadow: 0 0 10px rgba(231, 76, 60, 0.5);
+    }
+    
+    .upload-area {
+      border: 2px dashed var(--light-gray);
+      border-radius: var(--border-radius);
+      padding: 30px;
+      text-align: center;
+      margin-bottom: 20px;
+      cursor: pointer;
+      transition: var(--transition);
+      position: relative;
+      background-color: #f8f9fa;
+    }
+    
+    .upload-area:hover {
+      border-color: var(--primary);
+      background-color: rgba(67, 97, 238, 0.05);
+    }
+    
+    .upload-area i {
+      font-size: 2.5rem;
+      color: var(--primary);
+      margin-bottom: 15px;
+      display: block;
+    }
+    
+    .upload-area p {
+      color: var(--gray);
+      margin-bottom: 5px;
+    }
+    
+    .upload-area small {
+      color: var(--gray);
+      font-size: 0.8rem;
+    }
+    
+    #imageInput {
+      display: none;
+    }
+    
+    .btn {
+      display: inline-block;
+      padding: 12px 24px;
+      border: none;
+      border-radius: 50px;
+      background-color: var(--primary);
+      color: white;
+      font-size: 1rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: var(--transition);
+      text-align: center;
+      width: 100%;
+      margin-top: 10px;
+    }
+    
+    .btn:hover {
+      background-color: var(--primary-dark);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(67, 97, 238, 0.3);
+    }
+    
+    .btn:disabled {
+      background-color: var(--gray);
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+    
+    .btn-secondary {
+      background-color: white;
+      color: var(--primary);
+      border: 1px solid var(--primary);
+    }
+    
+    .btn-secondary:hover {
+      background-color: var(--light);
+    }
+
+    .new-analysis-btn {
+      background: linear-gradient(to left, #f8961e, #f3722c);
+      margin-top: 15px;
+    }
+    
+    .results {
+      margin-top: 30px;
+      padding: 20px;
+      background-color: var(--light);
+      border-radius: var(--border-radius);
+      display: none;
+    }
+    
+    .results h3 {
+      color: var(--primary);
+      margin-bottom: 15px;
+      font-size: 1.3rem;
+      text-align: center;
+    }
+    
+    .analysis-result {
+      background: white;
+      border-radius: var(--border-radius);
+      padding: 20px;
+      margin-top: 10px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+      border-right: 4px solid var(--primary);
+    }
+    
+    .result-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--light-gray);
+    }
+    
+    .result-item:last-child {
+      border-bottom: none;
+    }
+    
+    .result-label {
+      color: var(--primary);
+      font-weight: 700;
+      flex: 1;
+    }
+    
+    .result-value {
+      flex: 2;
+      text-align: left;
+      font-weight: 500;
+    }
+    
+    .signal-call {
+      color: var(--success);
+      font-weight: 700;
+    }
+    
+    .signal-put {
+      color: var(--danger);
+      font-weight: 700;
+    }
+    
+    .confidence-meter {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    
+    .confidence-bar {
+      height: 8px;
+      background: var(--light-gray);
+      border-radius: 4px;
+      flex: 1;
+      overflow: hidden;
+    }
+    
+    .confidence-level {
+      height: 100%;
+      background: linear-gradient(90deg, var(--primary), #3a0ca3);
+      border-radius: 4px;
+      width: 0%;
+      transition: width 1s ease;
+    }
+    
+    .confidence-value {
+      font-weight: 700;
+      color: var(--primary);
+      min-width: 40px;
+      text-align: center;
+    }
+    
+    .reason-box {
+      background: var(--light);
+      padding: 15px;
+      border-radius: 8px;
+      margin-top: 15px;
+      border-right: 2px solid var(--primary);
+    }
+    
+    .feedback-buttons {
+      display: flex;
+      justify-content: center;
+      gap: 15px;
+      margin-top: 20px;
+    }
+    
+    .feedback-btn {
+      padding: 10px 20px;
+      border-radius: 50px;
+      cursor: pointer;
+      font-weight: 500;
+      transition: var(--transition);
+      border: none;
+      flex: 1;
+      max-width: 180px;
+    }
+    
+    .feedback-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    }
+    
+    .correct {
+      background-color: var(--success);
+      color: white;
+    }
+    
+    .incorrect {
+      background-color: var(--danger);
+      color: white;
+    }
+    
+    .stats {
+      margin-top: 25px;
+      text-align: center;
+      font-size: 0.9rem;
+      color: var(--gray);
+      display: flex;
+      justify-content: center;
+      gap: 15px;
+    }
+    
+    .stat-item {
+      display: flex;
+      align-items: center;
+    }
+    
+    .stat-item span:first-child {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      margin-left: 5px;
+    }
+    
+    .stat-correct span:first-child {
+      background-color: var(--success);
+    }
+    
+    .stat-incorrect span:first-child {
+      background-color: var(--danger);
+    }
+    
+    .error-message {
+      color: var(--danger);
+      text-align: center;
+      padding: 20px;
+    }
+
+    .error-message i {
+      font-size: 2rem;
+      margin-bottom: 10px;
+      display: block;
+    }
+
+    .processing-indicator {
+      display: none;
+      margin: 10px 0;
+      text-align: center;
+      animation: fadeIn 0.5s ease;
+    }
+
+    .processing-indicator-content {
+      display: inline-flex;
+      align-items: center;
+      background: #e3f2fd;
+      padding: 8px 15px;
+      border-radius: 20px;
+    }
+
+    .processing-indicator i {
+      color: #4361ee;
+      margin-left: 8px;
+    }
+
+    .processing-indicator span {
+      color: #4361ee;
+      font-weight: 500;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    
+    @media (max-width: 768px) {
+      .card {
+        padding: 20px;
+      }
+      
+      .card-header h2 {
+        font-size: 1.5rem;
+      }
+      
+      .feedback-buttons {
+        flex-direction: column;
+        align-items: center;
+      }
+      
+      .feedback-btn {
+        max-width: 100%;
+        width: 100%;
+      }
+    }
+    
+    @keyframes pulse {
+      0% { opacity: 1; }
+      50% { opacity: 0.5; }
+      100% { opacity: 1; }
+    }
+    
+    .pulse {
+      animation: pulse 2s infinite;
+    }
+  </style>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
 <body>
-    <div class="container">
-        <h1>أداة تحليل الشموع - إطار M1</h1>
-        
-        <div class="control-panel">
-            <div class="form-group">
-                <label for="asset-select">اختر زوج التداول:</label>
-                <select id="asset-select">
-                    <option value="">-- اختر زوج التداول --</option>
-                    <option value="EURUSD">EUR/USD</option>
-                    <option value="GBPUSD">GBP/USD</option>
-                    <option value="USDJPY">USD/JPY</option>
-                    <option value="AUDUSD">AUD/USD</option>
-                    <option value="USDCAD">USD/CAD</option>
-                    <option value="USDCHF">USD/CHF</option>
-                    <option value="EURGBP">EUR/GBP</option>
-                    <option value="EURJPY">EUR/JPY</option>
-                    <option value="GBPJPY">GBP/JPY</option>
-                    <option value="XAUUSD">الذهب (XAU/USD)</option>
-                </select>
-            </div>
-            
-            <button id="connect-btn" onclick="connectToWS()">الاتصال بالسوق</button>
-            <button id="analyze-btn" onclick="analyzeMarket()" disabled>تحليل لحظي</button>
-        </div>
-        
-        <div class="price-display" id="price-display">
-            السعر الحالي: غير متصل
-        </div>
-        
-        <div class="current-candle">
-            <h3>معلومات الشمعة الحالية:</h3>
-            <div class="candle-info">
-                <span>الفتح: <span id="open-price">-</span></span>
-                <span>الأعلى: <span id="high-price">-</span></span>
-                <span>الأدنى: <span id="low-price">-</span></span>
-                <span>الإغلاق: <span id="close-price">-</span></span>
-            </div>
-        </div>
-        
-        <div class="loading" id="loading">
-            <div class="spinner"></div>
-            <p id="loading-text">جاري تحليل السوق والتنبؤ بالشمعة القادمة...</p>
-        </div>
-        
-        <div class="result-container" id="result-container">
-            <h2>نتائج التحليل اللحظي</h2>
-            <div class="status" id="status"></div>
-            
-            <div class="prediction" id="prediction"></div>
-            
-            <div class="confidence">
-                <div class="confidence-bar" id="confidence-bar"></div>
-                <div class="confidence-value" id="confidence-value"></div>
-            </div>
-            
-            <div class="reasons">
-                <h3>أسباب التوقع:</h3>
-                <p id="reasons"></p>
-            </div>
-        </div>
+  <div class="card">
+    <div class="card-header">
+      <h2>أداة تحليل الشموع - إطار M3</h2>
+      <p>تحليل فني دقيق للشمعة التالية بناءً على المؤشرات الفنية</p>
     </div>
+    
+    <div class="connection-status">
+      <span id="connectionText">حالة النموذج:</span>
+      <span class="status-indicator online pulse" id="statusIndicator"></span>
+    </div>
+    
+    <div class="upload-area" onclick="document.getElementById('imageInput').click()">
+      <i class="fas fa-cloud-upload-alt"></i>
+      <p>انقر لرفع صورة الشارت</p>
+      <small>يُفضل تصوير الشاشة مباشرة للدقة (M3 - 3 دقائق)</small>
+      <span id="fileName" style="display:none; margin-top:10px; font-weight:500;"></span>
+    </div>
+    <input type="file" id="imageInput" accept="image/*" />
+    
+    <div id="processingIndicator" class="processing-indicator">
+      <div class="processing-indicator-content">
+        <i class="fas fa-check-circle"></i>
+        <span>تم معالجة الصورة جاهزة للتحليل</span>
+      </div>
+    </div>
+    
+    <button class="btn" id="analyzeBtn" onclick="analyzeImage()" disabled>بدء التحليل</button>
+    <button class="btn new-analysis-btn" id="newAnalysisBtn" onclick="resetAnalysis()" style="display: none;">
+      <i class="fas fa-sync-alt"></i> تحليل جديد
+    </button>
+    
+    <div class="results" id="results">
+      <h3><i class="fas fa-chart-line"></i> نتيجة التحليل الفني</h3>
+      <div class="analysis-result" id="analysisResult"></div>
+    </div>
+    
+    <div class="feedback-buttons" id="feedbackButtons" style="display: none;">
+      <button class="feedback-btn correct" onclick="recordFeedback(true)">
+        <i class="fas fa-check"></i> النتيجة صحيحة
+      </button>
+      <button class="feedback-btn incorrect" onclick="recordFeedback(false)">
+        <i class="fas fa-times"></i> النتيجة خاطئة
+      </button>
+    </div>
+    
+    <div class="stats" id="statsDisplay">
+      <div class="stat-item stat-correct">
+        <span></span>
+        <span id="correctCount">0 صحيح</span>
+      </div>
+      <div class="stat-item stat-incorrect">
+        <span></span>
+        <span id="incorrectCount">0 خاطئ</span>
+      </div>
+    </div>
+  </div>
 
-    <script>
-        // المتغيرات العامة
-        let ws = null;
-        let currentAsset = '';
-        let candleData = [];
-        let currentCandle = {};
-        let priceHistory = [];
-        
-        // عناصر DOM
-        const assetSelect = document.getElementById('asset-select');
-        const connectBtn = document.getElementById('connect-btn');
-        const analyzeBtn = document.getElementById('analyze-btn');
-        const priceDisplay = document.getElementById('price-display');
-        const loadingElement = document.getElementById('loading');
-        const loadingText = document.getElementById('loading-text');
-        const resultContainer = document.getElementById('result-container');
-        const statusElement = document.getElementById('status');
-        const predictionElement = document.getElementById('prediction');
-        const confidenceBar = document.getElementById('confidence-bar');
-        const confidenceValue = document.getElementById('confidence-value');
-        const reasonsElement = document.getElementById('reasons');
-        
-        // عناصر معلومات الشمعة
-        const openPriceElement = document.getElementById('open-price');
-        const highPriceElement = document.getElementById('high-price');
-        const lowPriceElement = document.getElementById('low-price');
-        const closePriceElement = document.getElementById('close-price');
-        
-        // الاتصال بخادم WebSocket
-        function connectToWS() {
-            const selectedAsset = assetSelect.value;
-            
-            if (!selectedAsset) {
-                alert('الرجاء اختيار زوج التداول أولاً');
-                return;
-            }
-            
-            currentAsset = selectedAsset;
-            
-            // إعداد واجهة المستخدم
-            connectBtn.disabled = true;
-            connectBtn.textContent = 'جاري الاتصال...';
-            loadingElement.style.display = 'block';
-            loadingText.textContent = 'جاري الاتصال بخادم Pocket Option...';
-            
-            // إغلاق الاتصال الحالي إذا كان موجودًا
-            if (ws) {
-                ws.close();
-            }
-            
-            // الاتصال بأحد خوادم WebSocket (نستخدم الخادم الأوروبي كمثال)
-            ws = new WebSocket('wss://api-eu.po.market');
-            
-            ws.onopen = function() {
-                connectBtn.textContent = 'متصل';
-                loadingElement.style.display = 'none';
-                analyzeBtn.disabled = false;
-                statusElement.textContent = `متصل بزوج ${currentAsset} - جاهز للتحليل`;
-                
-                // طلب بيانات السعر
-                subscribeToPrice();
+  <script>
+    // معالج الصور
+    class ImageProcessor {
+      constructor() {
+        this.canvas = document.createElement('canvas');
+        this.ctx = this.canvas.getContext('2d');
+      }
+
+      async processImage(file) {
+        return new Promise((resolve) => {
+          const img = new Image();
+          const reader = new FileReader();
+          
+          reader.onload = (e) => {
+            img.onload = () => {
+              // تقليل حجم الصورة إلى أقصى عرض 800px مع الحفاظ على النسبة
+              const MAX_WIDTH = 800;
+              const scale = MAX_WIDTH / img.width;
+              this.canvas.width = MAX_WIDTH;
+              this.canvas.height = img.height * scale;
+              
+              this.ctx.drawImage(img, 0, 0, this.canvas.width, this.canvas.height);
+              
+              // إرجاع الصورة كـ base64
+              resolve(this.canvas.toDataURL('image/jpeg', 0.7));
             };
-            
-            ws.onerror = function(error) {
-                console.error('WebSocket Error:', error);
-                connectBtn.textContent = 'فشل الاتصال - حاول مرة أخرى';
-                connectBtn.disabled = false;
-                loadingElement.style.display = 'none';
-                priceDisplay.textContent = 'خطأ في الاتصال';
-            };
-            
-            ws.onclose = function() {
-                console.log('WebSocket Disconnected');
-                connectBtn.textContent = 'الاتصال بالسوق';
-                connectBtn.disabled = false;
-                analyzeBtn.disabled = true;
-                priceDisplay.textContent = 'غير متصل';
-            };
-            
-            ws.onmessage = function(event) {
-                const data = JSON.parse(event.data);
-                
-                if (data.type === 'candle') {
-                    handleCandleData(data);
-                } else if (data.type === 'price') {
-                    handlePriceUpdate(data);
+            img.src = e.target.result;
+          };
+          reader.readAsDataURL(file);
+        });
+      }
+    }
+
+    // تحميل الإحصائيات من localStorage
+    function loadStats() {
+      const stats = JSON.parse(localStorage.getItem('m3_candle_stats')) || { correct: 0, incorrect: 0 };
+      document.getElementById('correctCount').textContent = `${stats.correct} صحيح`;
+      document.getElementById('incorrectCount').textContent = `${stats.incorrect} خاطئ`;
+      return stats;
+    }
+
+    // تسجيل التغذية الراجعة
+    function recordFeedback(isCorrect) {
+      const stats = loadStats();
+      
+      if (isCorrect) {
+        stats.correct += 1;
+      } else {
+        stats.incorrect += 1;
+      }
+      
+      localStorage.setItem('m3_candle_stats', JSON.stringify(stats));
+      updateStatsDisplay();
+      
+      alert(isCorrect ? 'شكراً لتأكيد دقة النتيجة!' : 'شكراً للملاحظة، سنعمل على تحسين الدقة.');
+    }
+
+    // تحديث عرض الإحصائيات
+    function updateStatsDisplay() {
+      const stats = loadStats();
+      document.getElementById('correctCount').textContent = `${stats.correct} صحيح`;
+      document.getElementById('incorrectCount').textContent = `${stats.incorrect} خاطئ`;
+    }
+
+    // التحقق من اتصال النموذج
+    function checkConnection() {
+      const statusIndicator = document.getElementById('statusIndicator');
+      const connectionText = document.getElementById('connectionText');
+      
+      const API_KEY = "AIzaSyBSz5PnDP0Arb9PbQqyYsHZr6_vqpLLFcU";
+      
+      if (API_KEY && API_KEY !== "YOUR_GEMINI_API_KEY_HERE") {
+        statusIndicator.classList.remove('offline');
+        statusIndicator.classList.add('online');
+        connectionText.textContent = "النموذج متصل (gemini-2.0-flash)";
+      } else {
+        statusIndicator.classList.remove('online');
+        statusIndicator.classList.add('offline');
+        connectionText.textContent = "النموذج غير متصل (مفتاح API مطلوب)";
+        document.getElementById('analyzeBtn').disabled = true;
+      }
+    }
+
+    // معالجة اختيار الصورة
+    document.getElementById('imageInput').addEventListener('change', async function(e) {
+      if (e.target.files.length > 0) {
+        const file = e.target.files[0];
+        const fileNameElement = document.getElementById('fileName');
+        const processingIndicator = document.getElementById('processingIndicator');
+        const analyzeBtn = document.getElementById('analyzeBtn');
+        
+        // إظهار حالة التحميل
+        fileNameElement.textContent = "جارٍ معالجة الصورة...";
+        fileNameElement.style.display = 'block';
+        analyzeBtn.disabled = true;
+        processingIndicator.style.display = 'none';
+        
+        // معالجة الصورة
+        const processor = new ImageProcessor();
+        await processor.processImage(file);
+        
+        // إظهار المؤشر
+        fileNameElement.textContent = file.name;
+        processingIndicator.style.display = 'block';
+        analyzeBtn.disabled = false;
+      }
+    });
+
+    // إعادة تعيين التحليل
+    function resetAnalysis() {
+      document.getElementById('imageInput').value = '';
+      document.getElementById('fileName').textContent = '';
+      document.getElementById('fileName').style.display = 'none';
+      document.getElementById('processingIndicator').style.display = 'none';
+      document.querySelector('.upload-area p').textContent = 'انقر لرفع صورة الشارت';
+      document.getElementById('results').style.display = 'none';
+      document.getElementById('feedbackButtons').style.display = 'none';
+      document.getElementById('newAnalysisBtn').style.display = 'none';
+      document.getElementById('analyzeBtn').disabled = true;
+      document.getElementById('analyzeBtn').innerHTML = 'بدء التحليل';
+    }
+
+    // الدوال المساعدة لتحليل النتائج
+    function extractSignal(text) {
+      const patterns = [
+        /الشمعه التاليه:\s*(شراء|بيع)/i,
+        /الاتجاه:\s*(شراء|بيع)/i,
+        /التوصيه:\s*(شراء|بيع)/i,
+        /(شراء|بيع)\s*بنسبة/i
+      ];
+      
+      for (const pattern of patterns) {
+        const match = text.match(pattern);
+        if (match) return match[1];
+      }
+      
+      if (text.includes('شراء')) return 'شراء';
+      if (text.includes('بيع')) return 'بيع';
+      
+      return null;
+    }
+
+    function extractConfidence(text) {
+      const patterns = [
+        /بنسبة ثقة\s*(\d{1,3})%/i,
+        /الثقة:\s*(\d{1,3})%/i,
+        /نسبة\s*(\d{1,3})%/i,
+        /(\d{1,3})%\s*ثقة/i
+      ];
+      
+      for (const pattern of patterns) {
+        const match = text.match(pattern);
+        if (match) return match[1];
+      }
+      
+      const fallbackMatch = text.match(/(\d{1,3})%/);
+      return fallbackMatch ? fallbackMatch[1] : null;
+    }
+
+    function extractPair(text) {
+      const patterns = [
+        /الزوج:\s*([A-Z]{3}\/[A-Z]{3})/i,
+        /زوج:\s*([A-Z]{3}\/[A-Z]{3})/i,
+        /الرمز:\s*([A-Z]{3}\/[A-Z]{3})/i,
+        /([A-Z]{3}\/[A-Z]{3})\s+دعم/i,
+        /([A-Z]{3}\/[A-Z]{3})\s+مقاومة/i
+      ];
+      
+      for (const pattern of patterns) {
+        const match = text.match(pattern);
+        if (match) return match[1];
+      }
+      
+      const fallbackMatch = text.match(/[A-Z]{3}\/[A-Z]{3}/);
+      return fallbackMatch ? fallbackMatch[0] : null;
+    }
+
+    function extractLevel(text, levelType) {
+      const patterns = [
+        new RegExp(`${levelType}:\\s*([\\d\\.]+)`, 'i'),
+        new RegExp(`سعر ${levelType}\\s*([\\d\\.]+)`, 'i'),
+        new RegExp(`${levelType}\\s*عند\\s*([\\d\\.]+)`, 'i')
+      ];
+      
+      for (const pattern of patterns) {
+        const match = text.match(pattern);
+        if (match) return match[1];
+      }
+      
+      const nearbyPattern = new RegExp(`${levelType}[^\\d]*([\\d\\.]+)`);
+      const nearbyMatch = text.match(nearbyPattern);
+      return nearbyMatch ? nearbyMatch[1] : null;
+    }
+
+    function extractReason(text) {
+      const reasonPatterns = [
+        /الاسباب:\s*([^\n]+)/i,
+        /السبب:\s*([^\n]+)/i,
+        /التفسير:\s*([^\n]+)/i,
+        /التحليل:\s*([^\n]+)/i
+      ];
+      
+      for (const pattern of reasonPatterns) {
+        const match = text.match(pattern);
+        if (match) return match[1].trim();
+      }
+      
+      const sentences = text.split(/[\.\n]/).filter(s => s.trim().length > 0);
+      if (sentences.length >= 2) {
+        return sentences.slice(-2).join('. ').trim();
+      }
+      
+      return text.length > 100 ? text.substring(0, 100) + '...' : text;
+    }
+
+    // تحليل نتيجة النموذج بدون قيم افتراضية
+    function parseAnalysisResult(text) {
+      // تنظيف النص أولاً
+      const cleanedText = text.replace(/\s+/g, ' ').trim();
+      
+      // استخراج البيانات بدون قيم افتراضية
+      return {
+        signal: extractSignal(cleanedText),
+        confidence: extractConfidence(cleanedText),
+        pair: extractPair(cleanedText),
+        support: extractLevel(cleanedText, 'دعم'),
+        resistance: extractLevel(cleanedText, 'مقاومة'),
+        reason: extractReason(cleanedText)
+      };
+    }
+
+    // عرض النتيجة بدون قيم افتراضية
+    function displayFormattedResult(data) {
+      const resultContainer = document.getElementById('analysisResult');
+      let html = '';
+      
+      if (data.signal) {
+        const signalClass = data.signal === 'شراء' ? 'signal-call' : 'signal-put';
+        html += `
+          <div class="result-item">
+            <span class="result-label">الإتجاه المتوقع:</span>
+            <span class="result-value ${signalClass}">
+              <i class="fas fa-${data.signal === 'شراء' ? 'arrow-up' : 'arrow-down'}"></i>
+              ${data.signal}
+            </span>
+          </div>
+        `;
+      }
+
+      if (data.confidence) {
+        html += `
+          <div class="result-item">
+            <span class="result-label">نسبة الثقة:</span>
+            <div class="result-value confidence-meter">
+              <span class="confidence-value">${data.confidence}%</span>
+              <div class="confidence-bar">
+                <div class="confidence-level" style="width: ${data.confidence}%"></div>
+              </div>
+            </div>
+          </div>
+        `;
+      }
+
+      if (data.pair) {
+        html += `
+          <div class="result-item">
+            <span class="result-label">الزوج:</span>
+            <span class="result-value">${data.pair}</span>
+          </div>
+        `;
+      }
+
+      if (data.support) {
+        html += `
+          <div class="result-item">
+            <span class="result-label">أقرب دعم:</span>
+            <span class="result-value">${data.support}</span>
+          </div>
+        `;
+      }
+
+      if (data.resistance) {
+        html += `
+          <div class="result-item">
+            <span class="result-label">أقرب مقاومة:</span>
+            <span class="result-value">${data.resistance}</span>
+          </div>
+        `;
+      }
+
+      if (data.reason) {
+        html += `
+          <div class="reason-box">
+            <strong><i class="fas fa-info-circle"></i> التحليل:</strong>
+            <p>${data.reason}</p>
+          </div>
+        `;
+      }
+
+      if (!html) {
+        html = `
+          <div class="error-message">
+            <i class="fas fa-exclamation-triangle"></i>
+            <p>لم يتمكن النموذج من تحليل الصورة، يرجى المحاولة بصورة أخرى</p>
+          </div>
+        `;
+      }
+      
+      resultContainer.innerHTML = html;
+      document.getElementById('results').style.display = 'block';
+      document.getElementById('feedbackButtons').style.display = 'flex';
+      document.getElementById('newAnalysisBtn').style.display = 'block';
+      
+      // تحريك شريط الثقة بسلاسة
+      setTimeout(() => {
+        const confidenceBar = document.querySelector('.confidence-level');
+        if (confidenceBar) confidenceBar.style.width = `${data.confidence}%`;
+      }, 100);
+    }
+
+    // تحليل الصورة باستخدام Gemini API
+    async function analyzeImage() {
+      const fileInput = document.getElementById('imageInput');
+      const resultsDiv = document.getElementById('results');
+      const feedbackButtons = document.getElementById('feedbackButtons');
+      const analyzeBtn = document.getElementById('analyzeBtn');
+      const newAnalysisBtn = document.getElementById('newAnalysisBtn');
+
+      if (!fileInput.files[0]) {
+        alert('يرجى اختيار صورة الشارت أولاً');
+        return;
+      }
+
+      analyzeBtn.disabled = true;
+      analyzeBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جاري التحليل';
+      resultsDiv.style.display = 'none';
+      feedbackButtons.style.display = 'none';
+
+      try {
+        const imageFile = fileInput.files[0];
+        const API_KEY = "AIzaSyBSz5PnDP0Arb9PbQqyYsHZr6_vqpLLFcU";
+        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${API_KEY}`;
+
+        // بناء الـ prompt بطريقة منظمة
+        const promptParts = [
+          "أنت خبير ومحليل فني محترف في تحليل صور الرسوم البيانية لأسواق الفوركس والخيارات الثنائية.",
+          "قم بتحليل صورة الشارت المرفقة من منصة Pocket Option على الإطار الزمني m3،",
+          "وقدم توقعًا لاتجاه الشمعة القادمة فقط (إما شراء أو بيع) مع نسبة الثقة،",
+          "بالاعتماد على:",
+          "1. حركة السعر الحالية وأنماط الشموع",
+          "2. المؤشرات الفنية الظاهرة في الشارت:",
+          "   - المتوسط المتحرك الأسي EMA 9",
+          "   - مؤشر MACD (6,13,5)",
+          "   - مؤشر Stochastic (5,3,3)",
+          "3. مستويات الدعم والمقاومة",
+          "4. تقاطعات المؤشرات المختلفة",
+          "",
+          "أجب بالصيغة التالية بدقة:",
+          "الشمعه التاليه: [شراء/بيع] بنسبة ثقة [XX%]",
+          "الزوج: [XXX/XXX]",
+          "الدعم: [X.XXXX]",
+          "المقاومة: [X.XXXX]",
+          "الاسباب: [وصف مختصر في حدود 50 كلمة]",
+          "",
+          "ملاحظات مهمة:",
+          "- لا تُقدّم أي تنبؤات طويلة المدى",
+          "- القرار يجب أن يكون فقط للشمعة التالية بناءً على الصورة",
+          "- كن دقيقًا في ذكر الأرقام والنسب"
+        ];
+
+        const processor = new ImageProcessor();
+        const base64Data = await processor.processImage(imageFile);
+
+        // بناء payload منظم
+        const payload = {
+          contents: [{
+            parts: [
+              { text: promptParts.join('\n') },
+              {
+                inlineData: {
+                  mimeType: 'image/jpeg',
+                  data: base64Data.split(',')[1]
                 }
-            };
+              }
+            ]
+          }],
+          generationConfig: {
+            temperature: 0.5,
+            topP: 0.8,
+            topK: 40,
+            maxOutputTokens: 500,
+            stopSequences: ["\n\n"]
+          },
+          safetySettings: [
+            {
+              category: "HARM_CATEGORY_HARASSMENT",
+              threshold: "BLOCK_NONE"
+            },
+            {
+              category: "HARM_CATEGORY_HATE_SPEECH",
+              threshold: "BLOCK_NONE"
+            },
+            {
+              category: "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+              threshold: "BLOCK_NONE"
+            },
+            {
+              category: "HARM_CATEGORY_DANGEROUS_CONTENT",
+              threshold: "BLOCK_NONE"
+            }
+          ]
+        };
+
+        const response = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            'X-Goog-Api-Key': API_KEY
+          },
+          body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error?.message || 'خطأ في استجابة النموذج');
+        }
+
+        const result = await response.json();
+        const text = result.candidates?.[0]?.content?.parts?.[0]?.text || '';
+        
+        if (text) {
+          const parsedResult = parseAnalysisResult(text);
+          displayFormattedResult(parsedResult);
+        } else {
+          displayFormattedResult({}); // عرض رسالة خطأ
         }
         
-        // الاشتراك في تحديثات السعر
-        function subscribeToPrice() {
-            if (ws && ws.readyState === WebSocket.OPEN) {
-                const message = {
-                    name: 'subscribe',
-                    params: {
-                        routingKey: `price.${currentAsset}.M1`
-                    }
-                };
-                
-                ws.send(JSON.stringify(message));
-            }
-        }
+      } catch (err) {
+        console.error('Error:', err);
+        displayFormattedResult({}); // عرض رسالة خطأ
         
-        // معالجة بيانات الشموع
-        function handleCandleData(data) {
-            // تحديث بيانات الشمعة الحالية
-            currentCandle = {
-                open: data.open,
-                high: data.high,
-                low: data.low,
-                close: data.close,
-                time: new Date(data.time)
-            };
-            
-            // تحديث واجهة المستخدم
-            openPriceElement.textContent = currentCandle.open.toFixed(5);
-            highPriceElement.textContent = currentCandle.high.toFixed(5);
-            lowPriceElement.textContent = currentCandle.low.toFixed(5);
-            closePriceElement.textContent = currentCandle.close.toFixed(5);
-            
-            // تخزين بيانات الشمعة للتحليل
-            candleData.push(currentCandle);
-            if (candleData.length > 20) {
-                candleData.shift(); // الاحتفاظ بحد أقصى 20 شمعة
-            }
-            
-            // تخزين سجل الأسعار
-            priceHistory.push(currentCandle.close);
-            if (priceHistory.length > 100) {
-                priceHistory.shift();
-            }
+        // معالجة خاصة لأنواع مختلفة من الأخطاء
+        if (err.message.includes('API_KEY')) {
+          alert('خطأ في مفتاح API، يرجى التحقق من الإعدادات');
+        } else if (err.message.includes('quota')) {
+          alert('تم تجاوز الحد المسموح به لطلبات API');
+        } else {
+          alert('حدث خطأ أثناء التحليل: ' + err.message);
         }
-        
-        // معالجة تحديثات السعر
-        function handlePriceUpdate(data) {
-            priceDisplay.textContent = `السعر الحالي لـ ${currentAsset}: ${data.price.toFixed(5)}`;
-        }
-        
-        // تحليل السوق
-        function analyzeMarket() {
-            if (candleData.length < 5) {
-                alert('لا توجد بيانات كافية للتحليل. انتظر بضع ثوانٍ...');
-                return;
-            }
-            
-            // إعداد واجهة المستخدم
-            loadingElement.style.display = 'block';
-            loadingText.textContent = 'جاري تحليل السوق والتنبؤ بالشمعة القادمة...';
-            resultContainer.style.display = 'none';
-            analyzeBtn.disabled = true;
-            
-            // محاكاة وقت التحليل (في التطبيق الحقيقي سيكون التحليل فوريًا)
-            setTimeout(() => {
-                performTechnicalAnalysis();
-            }, 1000);
-        }
-        
-        // التحليل الفني الحقيقي
-        function performTechnicalAnalysis() {
-            // 1. حساب RSI
-            const rsi = calculateRSI(priceHistory, 14);
-            const lastRsi = rsi[rsi.length - 1];
-            
-            // 2. حساب MACD
-            const macd = calculateMACD(priceHistory);
-            const lastMacd = macd.MACD[macd.MACD.length - 1];
-            const lastSignal = macd.signal[macd.signal.length - 1];
-            
-            // 3. حساب المتوسطات المتحركة
-            const sma5 = calculateSMA(priceHistory, 5);
-            const sma10 = calculateSMA(priceHistory, 10);
-            const lastPrice = priceHistory[priceHistory.length - 1];
-            
-            // 4. تحليل الاتجاه
-            const trendAnalysis = analyzeTrend(candleData);
-            
-            // 5. تحديد التوقع
-            let prediction = '';
-            let confidence = 0;
-            let reasons = [];
-            
-            // تحليل RSI
-            if (lastRsi < 30) {
-                reasons.push('RSI يشير إلى ذروة بيع (قيمة: ' + lastRsi.toFixed(2) + ')');
-                confidence += 25;
-            } else if (lastRsi > 70) {
-                reasons.push('RSI يشير إلى ذروة شراء (قيمة: ' + lastRsi.toFixed(2) + ')');
-                confidence += 25;
-            }
-            
-            // تحليل MACD
-            if (lastMacd > lastSignal) {
-                reasons.push('MACD فوق خط الإشارة (إشارة صعودية)');
-                confidence += 20;
-            } else {
-                reasons.push('MACD تحت خط الإشارة (إشارة هبوطية)');
-                confidence += 20;
-            }
-            
-            // تحليل المتوسطات المتحركة
-            if (lastPrice > sma5 && sma5 > sma10) {
-                reasons.push('السعر فوق المتوسط المتحرك القصير والطويل');
-                confidence += 20;
-            } else if (lastPrice < sma5 && sma5 < sma10) {
-                reasons.push('السعر تحت المتوسط المتحرك القصير والطويل');
-                confidence += 20;
-            }
-            
-            // تحليل الاتجاه
-            if (trendAnalysis.trend === 'up') {
-                reasons.push('اتجاه صعودي قوي (' + trendAnalysis.strength + ')');
-                confidence += 15;
-            } else if (trendAnalysis.trend === 'down') {
-                reasons.push('اتجاه هبوطي قوي (' + trendAnalysis.strength + ')');
-                confidence += 15;
-            }
-            
-            // تحديد التوقع النهائي
-            if (confidence >= 60) {
-                prediction = (lastMacd > lastSignal && lastPrice > sma5) ? 'شراء' : 'بيع';
-            } else {
-                // إذا كانت الثقة منخفضة، نعتمد على آخر شمعة
-                prediction = (currentCandle.close > currentCandle.open) ? 'شراء' : 'بيع';
-                reasons.push('إشارات متضاربة - الاعتماد على اتجاه الشمعة الحالية');
-                confidence = 50;
-            }
-            
-            // عرض النتائج
-            displayResults(prediction, confidence, reasons);
-        }
-        
-        // عرض النتائج
-        function displayResults(prediction, confidence, reasons) {
-            loadingElement.style.display = 'none';
-            analyzeBtn.disabled = false;
-            
-            predictionElement.textContent = 'الشمعة القادمة: ' + prediction;
-            predictionElement.className = 'prediction ' + (prediction === 'شراء' ? 'buy' : 'sell');
-            
-            confidenceBar.style.width = confidence + '%';
-            confidenceValue.textContent = 'نسبة الثقة: ' + confidence + '%';
-            
-            reasonsElement.textContent = reasons.join('، ');
-            
-            statusElement.textContent = `تم تحليل زوج ${currentAsset} - ${new Date().toLocaleTimeString()}`;
-            
-            resultContainer.style.display = 'block';
-        }
-        
-        // دالات التحليل الفني
-        
-        // حساب RSI
-        function calculateRSI(prices, period) {
-            let gains = [];
-            let losses = [];
-            
-            for (let i = 1; i < prices.length; i++) {
-                const difference = prices[i] - prices[i - 1];
-                if (difference >= 0) {
-                    gains.push(difference);
-                    losses.push(0);
-                } else {
-                    gains.push(0);
-                    losses.push(Math.abs(difference));
-                }
-            }
-            
-            let avgGain = gains.slice(0, period).reduce((a, b) => a + b, 0) / period;
-            let avgLoss = losses.slice(0, period).reduce((a, b) => a + b, 0) / period;
-            
-            let rs = avgGain / avgLoss;
-            let rsi = [100 - (100 / (1 + rs))];
-            
-            for (let i = period; i < gains.length; i++) {
-                avgGain = ((avgGain * (period - 1)) + gains[i]) / period;
-                avgLoss = ((avgLoss * (period - 1)) + losses[i]) / period;
-                
-                rs = avgGain / avgLoss;
-                rsi.push(100 - (100 / (1 + rs)));
-            }
-            
-            return rsi;
-        }
-        
-        // حساب MACD
-        function calculateMACD(prices, fastPeriod = 12, slowPeriod = 26, signalPeriod = 9) {
-            const fastEMA = calculateEMA(prices, fastPeriod);
-            const slowEMA = calculateEMA(prices, slowPeriod);
-            
-            const MACD = [];
-            for (let i = 0; i < slowEMA.length; i++) {
-                MACD.push(fastEMA[i + (fastPeriod - slowPeriod)] - slowEMA[i]);
-            }
-            
-            const signal = calculateEMA(MACD, signalPeriod);
-            
-            return {
-                MACD: MACD,
-                signal: signal
-            };
-        }
-        
-        // حساب EMA
-        function calculateEMA(prices, period) {
-            const k = 2 / (period + 1);
-            let ema = [prices[0]];
-            
-            for (let i = 1; i < prices.length; i++) {
-                ema.push(prices[i] * k + ema[i - 1] * (1 - k));
-            }
-            
-            return ema;
-        }
-        
-        // حساب SMA
-        function calculateSMA(prices, period) {
-            const sma = [];
-            
-            for (let i = period - 1; i < prices.length; i++) {
-                const sum = prices.slice(i - period + 1, i + 1).reduce((a, b) => a + b, 0);
-                sma.push(sum / period);
-            }
-            
-            return sma;
-        }
-        
-        // تحليل الاتجاه
-        function analyzeTrend(candles) {
-            if (candles.length < 3) {
-                return { trend: 'neutral', strength: 'ضعيف' };
-            }
-            
-            const lastThree = candles.slice(-3);
-            const direction = lastThree[2].close - lastThree[0].open;
-            
-            if (direction > 0) {
-                const strength = (direction / lastThree[0].open) * 100;
-                return { 
-                    trend: 'up', 
-                    strength: strength > 1 ? 'قوي' : 'متوسط'
-                };
-            } else if (direction < 0) {
-                const strength = (Math.abs(direction) / lastThree[0].open) * 100;
-                return { 
-                    trend: 'down', 
-                    strength: strength > 1 ? 'قوي' : 'متوسط'
-                };
-            } else {
-                return { trend: 'neutral', strength: 'ضعيف' };
-            }
-        }
-    </script>
+      } finally {
+        analyzeBtn.disabled = false;
+        analyzeBtn.innerHTML = 'بدء التحليل';
+      }
+    }
+
+    // تحميل الصفحة
+    window.onload = function() {
+      checkConnection();
+      loadStats();
+      
+      setTimeout(() => {
+        document.getElementById('statusIndicator').classList.remove('pulse');
+      }, 3000);
+    };
+  </script>
 </body>
 </html>
