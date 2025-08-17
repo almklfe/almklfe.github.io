@@ -1,948 +1,905 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>أداة احترافية لتحليل الرسم البياني</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>أداة الذكاء الاصطناعي لتحليل الشموع</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
     :root {
       --primary: #4361ee;
-      --primary-dark: #3a56d4;
-      --success: #2ecc71;
-      --danger: #e74c3c;
-      --light: #f8f9fa;
+      --secondary: #3f37c9;
+      --success: #4cc9f0;
       --dark: #212529;
-      --gray: #6c757d;
-      --light-gray: #e9ecef;
-      --border-radius: 12px;
-      --box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-      --transition: all 0.3s ease;
+      --light: #f8f9fa;
+      --danger: #f72585;
+      --warning: #f8961e;
     }
     
     * {
-      box-sizing: border-box;
       margin: 0;
       padding: 0;
+      box-sizing: border-box;
+      font-family: 'Tahoma', Arial, sans-serif;
     }
     
     body {
-      font-family: 'Tajawal', sans-serif;
-      background-color: #f5f7ff;
-      color: var(--dark);
-      line-height: 1.6;
-      padding: 20px;
+      background: linear-gradient(135deg, #f5f7fa 0%, #e4e8f0 100%);
       min-height: 100vh;
-      display: flex;
-      justify-content: center;
-      align-items: center;
+      padding: 2rem;
+      color: var(--dark);
+    }
+    
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
     }
     
     .card {
-      background-color: white;
-      padding: 30px;
-      border-radius: var(--border-radius);
-      box-shadow: var(--box-shadow);
-      width: 100%;
-      max-width: 600px;
-      margin: 20px auto;
-      position: relative;
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
       overflow: hidden;
+      transition: transform 0.3s ease;
     }
     
-    .card::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      right: 0;
-      width: 100%;
-      height: 8px;
-      background: linear-gradient(90deg, #4361ee, #3a0ca3);
+    .card:hover {
+      transform: translateY(-5px);
     }
     
     .card-header {
+      background: linear-gradient(to right, var(--primary), var(--secondary));
+      color: white;
+      padding: 1.5rem;
       text-align: center;
-      margin-bottom: 25px;
       position: relative;
     }
     
     .card-header h2 {
-      color: var(--primary);
       font-size: 1.8rem;
-      font-weight: 700;
-      margin-bottom: 10px;
+      margin-bottom: 0.5rem;
     }
     
     .card-header p {
-      color: var(--gray);
-      font-size: 1rem;
+      opacity: 0.9;
+      font-size: 0.9rem;
+    }
+    
+    .card-body {
+      padding: 2rem;
     }
     
     .connection-status {
       display: flex;
       align-items: center;
       justify-content: center;
-      margin-bottom: 20px;
-      background-color: var(--light);
-      padding: 10px 15px;
-      border-radius: 50px;
-      font-size: 0.9rem;
+      padding: 0.8rem;
+      border-radius: 8px;
+      margin-bottom: 1.5rem;
+      font-weight: bold;
+      transition: all 0.3s ease;
     }
     
-    .status-indicator {
-      width: 10px;
-      height: 10px;
-      border-radius: 50%;
-      margin-left: 8px;
+    .connected {
+      background-color: rgba(76, 201, 240, 0.2);
+      color: #0a9396;
+      border: 1px solid #4cc9f0;
     }
     
-    .online {
-      background-color: var(--success);
-      box-shadow: 0 0 10px rgba(46, 204, 113, 0.5);
-    }
-    
-    .offline {
-      background-color: var(--danger);
-      box-shadow: 0 0 10px rgba(231, 76, 60, 0.5);
+    .disconnected {
+      background-color: rgba(247, 37, 133, 0.1);
+      color: var(--danger);
+      border: 1px solid var(--danger);
     }
     
     .upload-area {
-      border: 2px dashed var(--light-gray);
-      border-radius: var(--border-radius);
-      padding: 30px;
+      border: 2px dashed #ddd;
+      border-radius: 12px;
+      padding: 2rem;
       text-align: center;
-      margin-bottom: 20px;
+      margin-bottom: 1.5rem;
       cursor: pointer;
-      transition: var(--transition);
+      transition: all 0.3s ease;
       position: relative;
-      background-color: #f8f9fa;
     }
     
     .upload-area:hover {
       border-color: var(--primary);
-      background-color: rgba(67, 97, 238, 0.05);
+      background: rgba(67, 97, 238, 0.05);
     }
     
     .upload-area i {
-      font-size: 2.5rem;
+      font-size: 3rem;
       color: var(--primary);
-      margin-bottom: 15px;
-      display: block;
+      margin-bottom: 1rem;
     }
     
     .upload-area p {
-      color: var(--gray);
-      margin-bottom: 5px;
+      margin-bottom: 0.5rem;
     }
     
-    .upload-area small {
-      color: var(--gray);
-      font-size: 0.8rem;
-    }
-    
-    #imageInput {
-      display: none;
+    .upload-area input[type="file"] {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      top: 0;
+      left: 0;
+      opacity: 0;
+      cursor: pointer;
     }
     
     .btn {
       display: inline-block;
-      padding: 12px 24px;
-      border: none;
-      border-radius: 50px;
-      background-color: var(--primary);
+      padding: 0.8rem 1.8rem;
+      background: linear-gradient(to right, var(--primary), var(--secondary));
       color: white;
+      border: none;
+      border-radius: 8px;
       font-size: 1rem;
-      font-weight: 500;
+      font-weight: bold;
       cursor: pointer;
-      transition: var(--transition);
-      text-align: center;
+      transition: all 0.3s ease;
+      box-shadow: 0 4px 15px rgba(67, 97, 238, 0.3);
       width: 100%;
-      margin-top: 10px;
+      margin-bottom: 10px;
     }
     
     .btn:hover {
-      background-color: var(--primary-dark);
       transform: translateY(-2px);
-      box-shadow: 0 4px 12px rgba(67, 97, 238, 0.3);
+      box-shadow: 0 6px 20px rgba(67, 97, 238, 0.4);
     }
     
     .btn:disabled {
-      background-color: var(--gray);
+      background: #ccc;
       cursor: not-allowed;
       transform: none;
       box-shadow: none;
     }
     
-    .btn-secondary {
-      background-color: white;
-      color: var(--primary);
-      border: 1px solid var(--primary);
-    }
-    
-    .btn-secondary:hover {
-      background-color: var(--light);
-    }
-
-    .new-analysis-btn {
-      background: linear-gradient(to left, #f8961e, #f3722c);
-      margin-top: 15px;
-    }
-    
-    .results {
-      margin-top: 30px;
-      padding: 20px;
-      background-color: var(--light);
-      border-radius: var(--border-radius);
+    .loading {
       display: none;
-    }
-    
-    .results h3 {
-      color: var(--primary);
-      margin-bottom: 15px;
-      font-size: 1.3rem;
       text-align: center;
+      padding: 1rem;
+      margin: 1rem 0;
     }
     
-    .analysis-result {
+    .loading i {
+      font-size: 2rem;
+      color: var(--primary);
+      animation: spin 1s linear infinite;
+    }
+    
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    
+    .result {
+      display: none;
       background: white;
-      border-radius: var(--border-radius);
-      padding: 20px;
-      margin-top: 10px;
-      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
-      border-right: 4px solid var(--primary);
+      border-radius: 12px;
+      padding: 1.5rem;
+      margin-top: 1.5rem;
+      box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+      border: 1px solid #eee;
     }
     
     .result-item {
       display: flex;
       justify-content: space-between;
-      padding: 12px 0;
-      border-bottom: 1px solid var(--light-gray);
+      padding: 0.8rem 0;
+      border-bottom: 1px solid #eee;
     }
     
     .result-item:last-child {
       border-bottom: none;
     }
     
-    .result-label {
+    .result-item strong {
       color: var(--primary);
-      font-weight: 700;
-      flex: 1;
+      font-weight: bold;
     }
     
     .result-value {
-      flex: 2;
-      text-align: left;
-      font-weight: 500;
+      color: #555;
+      font-weight: normal;
     }
     
     .signal-call {
-      color: var(--success);
-      font-weight: 700;
+      color: #2ecc71;
+      font-weight: bold;
     }
     
     .signal-put {
       color: var(--danger);
-      font-weight: 700;
-    }
-    
-    .confidence-meter {
-      display: flex;
-      align-items: center;
-      gap: 10px;
+      font-weight: bold;
     }
     
     .confidence-bar {
       height: 8px;
-      background: var(--light-gray);
+      background: #eee;
       border-radius: 4px;
-      flex: 1;
+      margin-top: 0.5rem;
       overflow: hidden;
     }
     
     .confidence-level {
       height: 100%;
-      background: linear-gradient(90deg, var(--primary), #3a0ca3);
+      background: linear-gradient(to right, #f72585, #4361ee);
       border-radius: 4px;
-      width: 0%;
-      transition: width 1s ease;
     }
     
-    .confidence-value {
-      font-weight: 700;
-      color: var(--primary);
-      min-width: 40px;
-      text-align: center;
-    }
-    
-    .reason-box {
-      background: var(--light);
-      padding: 15px;
+    .stats-container {
+      margin-top: 1.5rem;
+      padding: 1rem;
+      background: #f8f9fa;
       border-radius: 8px;
-      margin-top: 15px;
-      border-right: 2px solid var(--primary);
+      border: 1px solid #eee;
     }
     
-    .feedback-buttons {
+    .stats-item {
       display: flex;
-      justify-content: center;
-      gap: 15px;
-      margin-top: 20px;
+      justify-content: space-between;
+      margin-bottom: 0.5rem;
     }
     
-    .feedback-btn {
-      padding: 10px 20px;
-      border-radius: 50px;
-      cursor: pointer;
-      font-weight: 500;
-      transition: var(--transition);
-      border: none;
+    .stats-bar {
+      height: 8px;
+      background: #eee;
+      border-radius: 4px;
+      margin-top: 0.3rem;
+      overflow: hidden;
+    }
+    
+    .stats-correct {
+      background: #2ecc71;
+      height: 100%;
+    }
+    
+    .stats-incorrect {
+      background: #e74c3c;
+      height: 100%;
+    }
+
+    .new-analysis-btn {
+      background: linear-gradient(to right, #f8961e, #f3722c);
+      margin-top: 1rem;
+    }
+
+    .validation-buttons {
+      display: flex;
+      gap: 10px;
+      margin-top: 1rem;
+    }
+
+    .validation-btn {
       flex: 1;
-      max-width: 180px;
-    }
-    
-    .feedback-btn:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-    }
-    
-    .correct {
-      background-color: var(--success);
-      color: white;
-    }
-    
-    .incorrect {
-      background-color: var(--danger);
-      color: white;
-    }
-    
-    .stats {
-      margin-top: 25px;
+      padding: 0.5rem;
+      border-radius: 8px;
+      font-weight: bold;
+      cursor: pointer;
       text-align: center;
-      font-size: 0.9rem;
-      color: var(--gray);
-      display: flex;
-      justify-content: center;
-      gap: 15px;
     }
-    
-    .stat-item {
-      display: flex;
-      align-items: center;
+
+    .correct-btn {
+      background: rgba(46, 204, 113, 0.2);
+      color: #2ecc71;
+      border: 1px solid #2ecc71;
     }
-    
-    .stat-item span:first-child {
-      width: 12px;
-      height: 12px;
-      border-radius: 50%;
-      margin-left: 5px;
+
+    .incorrect-btn {
+      background: rgba(231, 76, 60, 0.2);
+      color: #e74c3c;
+      border: 1px solid #e74c3c;
     }
-    
-    .stat-correct span:first-child {
-      background-color: var(--success);
-    }
-    
-    .stat-incorrect span:first-child {
-      background-color: var(--danger);
-    }
-    
+
     .error-message {
       color: var(--danger);
       text-align: center;
-      padding: 20px;
+      padding: 1rem;
+      border-radius: 8px;
+      background: rgba(247, 37, 133, 0.1);
+      border: 1px solid var(--danger);
+      margin-bottom: 1rem;
     }
 
-    .error-message i {
-      font-size: 2rem;
-      margin-bottom: 10px;
-      display: block;
-    }
-
-    .processing-indicator {
+    .preview-modal {
       display: none;
-      margin: 10px 0;
-      text-align: center;
-      animation: fadeIn 0.5s ease;
-    }
-
-    .processing-indicator-content {
-      display: inline-flex;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.8);
+      z-index: 1000;
       align-items: center;
-      background: #e3f2fd;
-      padding: 8px 15px;
-      border-radius: 20px;
+      justify-content: center;
     }
 
-    .processing-indicator i {
+    .preview-content {
+      background: white;
+      padding: 20px;
+      border-radius: 10px;
+      max-width: 90%;
+      max-height: 90%;
+      text-align: center;
+    }
+
+    .preview-content img {
+      max-width: 100%;
+      max-height: 80vh;
+      border: 1px solid #ddd;
+    }
+
+    .close-preview {
+      margin-top: 15px;
+      padding: 8px 20px;
+      background: var(--primary);
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+
+    /* أنماط مؤشر التقدم الجديدة */
+    .progress-container {
+      width: 100%;
+      background: #f0f0f0;
+      border-radius: 10px;
+      margin: 15px 0;
+      overflow: hidden;
+    }
+
+    .progress-bar {
+      height: 8px;
+      background: linear-gradient(90deg, #4361ee, #3a0ca3);
+      width: 0%;
+      transition: width 0.5s ease;
+    }
+
+    #progressText {
+      display: block;
+      text-align: center;
+      margin-top: 5px;
+      font-weight: bold;
       color: #4361ee;
-      margin-left: 8px;
     }
 
-    .processing-indicator span {
-      color: #4361ee;
-      font-weight: 500;
+    #stageDetails {
+      padding: 8px;
+      background: #f8f9fa;
+      border-radius: 6px;
+      border-left: 3px solid #4361ee;
+      margin-top: 10px;
+      font-size: 13px;
+      color: #555;
     }
 
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(10px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-    
     @media (max-width: 768px) {
-      .card {
-        padding: 20px;
+      body {
+        padding: 1rem;
       }
       
       .card-header h2 {
         font-size: 1.5rem;
       }
       
-      .feedback-buttons {
+      .card-body {
+        padding: 1.5rem;
+      }
+
+      .validation-buttons {
         flex-direction: column;
-        align-items: center;
       }
-      
-      .feedback-btn {
-        max-width: 100%;
-        width: 100%;
-      }
-    }
-    
-    @keyframes pulse {
-      0% { opacity: 1; }
-      50% { opacity: 0.5; }
-      100% { opacity: 1; }
-    }
-    
-    .pulse {
-      animation: pulse 2s infinite;
     }
   </style>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
 <body>
-  <div class="card">
-    <div class="card-header">
-      <h2>أداة تحليل الشموع - إطار M3</h2>
-      <p>تحليل فني دقيق للشمعة التالية بناءً على المؤشرات الفنية</p>
-    </div>
-    
-    <div class="connection-status">
-      <span id="connectionText">حالة النموذج:</span>
-      <span class="status-indicator online pulse" id="statusIndicator"></span>
-    </div>
-    
-    <div class="upload-area" onclick="document.getElementById('imageInput').click()">
-      <i class="fas fa-cloud-upload-alt"></i>
-      <p>انقر لرفع صورة الشارت</p>
-      <small>يُفضل تصوير الشاشة مباشرة للدقة (M3 - 3 دقائق)</small>
-      <span id="fileName" style="display:none; margin-top:10px; font-weight:500;"></span>
-    </div>
-    <input type="file" id="imageInput" accept="image/*" />
-    
-    <div id="processingIndicator" class="processing-indicator">
-      <div class="processing-indicator-content">
-        <i class="fas fa-check-circle"></i>
-        <span>تم معالجة الصورة جاهزة للتحليل</span>
+  <div class="container">
+    <div class="card">
+      <div class="card-header">
+        <h2><i class="fas fa-chart-line"></i> أداة الذكاء الاصطناعي لتحليل الشموع</h2>
+        <p>تحليل احترافي للشمعة التالية بناءً على المؤشرات الفنية</p>
       </div>
-    </div>
-    
-    <button class="btn" id="analyzeBtn" onclick="analyzeImage()" disabled>بدء التحليل</button>
-    <button class="btn new-analysis-btn" id="newAnalysisBtn" onclick="resetAnalysis()" style="display: none;">
-      <i class="fas fa-sync-alt"></i> تحليل جديد
-    </button>
-    
-    <div class="results" id="results">
-      <h3><i class="fas fa-chart-line"></i> نتيجة التحليل الفني</h3>
-      <div class="analysis-result" id="analysisResult"></div>
-    </div>
-    
-    <div class="feedback-buttons" id="feedbackButtons" style="display: none;">
-      <button class="feedback-btn correct" onclick="recordFeedback(true)">
-        <i class="fas fa-check"></i> النتيجة صحيحة
-      </button>
-      <button class="feedback-btn incorrect" onclick="recordFeedback(false)">
-        <i class="fas fa-times"></i> النتيجة خاطئة
-      </button>
-    </div>
-    
-    <div class="stats" id="statsDisplay">
-      <div class="stat-item stat-correct">
-        <span></span>
-        <span id="correctCount">0 صحيح</span>
-      </div>
-      <div class="stat-item stat-incorrect">
-        <span></span>
-        <span id="incorrectCount">0 خاطئ</span>
+      
+      <div class="card-body">
+        <div id="connectionStatus" class="connection-status disconnected">
+          <i class="fas fa-plug"></i> جاري التحقق من اتصال النموذج...
+        </div>
+        
+        <div class="upload-area" onclick="document.getElementById('fileInput').click()">
+          <i class="fas fa-cloud-upload-alt"></i>
+          <h3>اسحب وأفلت صورة الشارت هنا</h3>
+          <p>أو انقر لاختيار صورة</p>
+          <input type="file" id="fileInput" accept="image/*" style="display: none;">
+        </div>
+        
+        <button id="previewBtn" class="btn" onclick="previewImage()" disabled>
+          <i class="fas fa-eye"></i> معاينة الصورة
+        </button>
+
+        <button id="analyzeBtn" class="btn" onclick="analyzeImage()" disabled>
+          <i class="fas fa-search"></i> بدء التحليل
+        </button>
+
+        <button id="newAnalysisBtn" class="btn new-analysis-btn" onclick="resetAnalysis()" style="display: none;">
+          <i class="fas fa-sync-alt"></i> تحليل جديد
+        </button>
+        
+        <div id="loadingIndicator" class="loading" style="display: none;">
+          <i class="fas fa-circle-notch fa-spin"></i>
+          <p id="loadingMessage">جاري الإعداد...</p>
+          <div class="progress-container">
+            <div id="progressBar" class="progress-bar"></div>
+            <span id="progressText">0%</span>
+          </div>
+          <div id="stageDetails"></div>
+        </div>
+
+        <div id="errorContainer" class="error-message" style="display: none;"></div>
+        
+        <div class="result" id="resultBox">
+          <div class="result-item">
+            <strong>اسم الزوج:</strong>
+            <span id="pair" class="result-value">جاري التحليل...</span>
+          </div>
+          
+          <div class="result-item">
+            <strong>الشمعة التالية:</strong>
+            <span id="signal" class="result-value">جاري التحليل...</span>
+          </div>
+          
+          <div class="result-item">
+            <strong>نسبة الثقة:</strong>
+            <div style="width: 100%;">
+              <span id="confidence" class="result-value">جاري التحليل...</span>
+              <div class="confidence-bar">
+                <div id="confidenceBar" class="confidence-level" style="width: 0%"></div>
+              </div>
+            </div>
+          </div>
+          
+          <div class="result-item">
+            <strong>الدعم والمقاومة:</strong>
+            <span id="supportResistance" class="result-value">جاري التحليل...</span>
+          </div>
+          
+          <div class="result-item">
+            <strong>الاسباب:</strong>
+            <span id="reason" class="result-value">جاري التحليل...</span>
+          </div>
+          
+          <div class="stats-container" id="statsContainer">
+            <h4><i class="fas fa-chart-pie"></i> إحصائيات الدقة</h4>
+            <div class="stats-item">
+              <span>النتائج الصحيحة:</span>
+              <span id="correctCount">0</span>
+            </div>
+            <div class="stats-bar">
+              <div id="correctBar" class="stats-correct" style="width: 0%"></div>
+            </div>
+            
+            <div class="stats-item">
+              <span>النتائج الخاطئة:</span>
+              <span id="incorrectCount">0</span>
+            </div>
+            <div class="stats-bar">
+              <div id="incorrectBar" class="stats-incorrect" style="width: 0%"></div>
+            </div>
+          </div>
+
+          <div class="validation-buttons" id="validationButtons" style="display: none;">
+            <div class="validation-btn correct-btn" onclick="validateResult(true)">
+              <i class="fas fa-check"></i> التحليل صحيح
+            </div>
+            <div class="validation-btn incorrect-btn" onclick="validateResult(false)">
+              <i class="fas fa-times"></i> التحليل خاطئ
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
 
   <script>
-    // معالج الصور
-    class ImageProcessor {
-      constructor() {
-        this.canvas = document.createElement('canvas');
-        this.ctx = this.canvas.getContext('2d');
-      }
+    let currentBase64Image = null;
+    let currentImageMetadata = {};
+    const MAX_WIDTH = 800;
+    const QUALITY = 0.85;
 
-      async processImage(file) {
-        return new Promise((resolve) => {
-          const img = new Image();
-          const reader = new FileReader();
-          
-          reader.onload = (e) => {
-            img.onload = () => {
-              // تقليل حجم الصورة إلى أقصى عرض 800px مع الحفاظ على النسبة
-              const MAX_WIDTH = 800;
-              const scale = MAX_WIDTH / img.width;
-              this.canvas.width = MAX_WIDTH;
-              this.canvas.height = img.height * scale;
+    const arabicPrompt = `أنت خبير ومحلل فني محترف في تحليل صور الرسوم البيانية لأسواق الفوركس. قم بتحليل صورة الشارت المرفقة من منصة Pocket Option على الإطار الزمني M3، وقدم توقعًا لاتجاه الشمعة القادمة فقط (إما شراء أو بيع) مع نسبة الثقة، وذلك بالاعتماد على:
+
+1- حركة السعر:
+- اتجاه وقوة الشمعة الحالية (حجم الجسم، الظلال، حجم التداول)
+- سلوك آخر 3-5 شموع قبل الشمعة الحالية
+
+2- المستويات السعرية:
+- تحديد أقرب مستوى مقاومة
+- تحديد أقرب مستوى دعم
+
+3- النماذج الشمعية:
+- Pin Bar
+- Engulfing
+- Doji
+
+4- المؤشرات الفنية الظاهرة في الشارت:
+- المتوسط المتحرك الأسي EMA 9
+- مؤشر MACD (6,13,5)
+- مؤشر Stochastic (5,3,3)
+
+5- تقاطعات المؤشرات المختلفة:
+- تقاطع EMA 9 مع السعر (أعلى/أسفل)
+- تقاطع خطوط الـ MACD (الإشارة مع الخط الرئيسي)
+- تقاطع خطوط الـ Stochastic (الإشارة مع الخط الرئيسي)
+- تناغم المؤشرات مع بعضها (التأكيدات أو التناقضات)
+
+قدم النتيجة بهذا التنسيق:
+{
+  "pair": "اسم الزوج",
+  "signal": "شراء أو بيع",
+  "confidence": "النسبة بين 0-100",
+  "supportResistance": "أقرب دعم ومقاومة",
+  "reason": "شرح مختصر (50 كلمة كحد أقصى) يشمل تحليل حركة السعر والمؤشرات"
+}`;
+
+    async function processImage(file) {
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        const reader = new FileReader();
+        
+        reader.onload = (e) => {
+          img.onload = () => {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            
+            let width = img.naturalWidth;
+            let height = img.naturalHeight;
+            
+            if (width > MAX_WIDTH) {
+              const ratio = MAX_WIDTH / width;
+              width = MAX_WIDTH;
+              height = Math.floor(height * ratio);
+            }
+            
+            canvas.width = width;
+            canvas.height = height;
+            
+            ctx.drawImage(img, 0, 0, width, height);
+            
+            canvas.toBlob((blob) => {
+              if (!blob) {
+                reject(new Error("فشل في معالجة الصورة"));
+                return;
+              }
               
-              this.ctx.drawImage(img, 0, 0, this.canvas.width, this.canvas.height);
-              
-              // إرجاع الصورة كـ base64
-              resolve(this.canvas.toDataURL('image/jpeg', 0.7));
-            };
-            img.src = e.target.result;
+              const newReader = new FileReader();
+              newReader.onload = () => resolve({
+                dataUrl: newReader.result,
+                width: width,
+                height: height,
+                size: (blob.size / (1024 * 1024)).toFixed(2) + 'MB',
+                type: file.type
+              });
+              newReader.readAsDataURL(blob);
+            }, file.type, QUALITY);
           };
-          reader.readAsDataURL(file);
-        });
-      }
+          img.onerror = () => reject(new Error("فشل في تحميل الصورة"));
+          img.src = e.target.result;
+        };
+        reader.onerror = () => reject(new Error("فشل في قراءة الملف"));
+        reader.readAsDataURL(file);
+      });
     }
 
-    // تحميل الإحصائيات من localStorage
-    function loadStats() {
-      const stats = JSON.parse(localStorage.getItem('m3_candle_stats')) || { correct: 0, incorrect: 0 };
-      document.getElementById('correctCount').textContent = `${stats.correct} صحيح`;
-      document.getElementById('incorrectCount').textContent = `${stats.incorrect} خاطئ`;
-      return stats;
-    }
+    document.addEventListener('DOMContentLoaded', async function() {
+      checkConnection();
+      updateStatisticsDisplay();
+      
+      document.getElementById('fileInput').addEventListener('change', async function(e) {
+        if (e.target.files.length > 0) {
+          try {
+            const file = e.target.files[0];
+            
+            if (!file.type.match('image.*')) {
+              throw new Error("الملف ليس صورة!");
+            }
 
-    // تسجيل التغذية الراجعة
-    function recordFeedback(isCorrect) {
-      const stats = loadStats();
-      
-      if (isCorrect) {
-        stats.correct += 1;
-      } else {
-        stats.incorrect += 1;
-      }
-      
-      localStorage.setItem('m3_candle_stats', JSON.stringify(stats));
-      updateStatsDisplay();
-      
-      alert(isCorrect ? 'شكراً لتأكيد دقة النتيجة!' : 'شكراً للملاحظة، سنعمل على تحسين الدقة.');
-    }
+            if (file.size > 15 * 1024 * 1024) {
+              throw new Error("حجم الصورة كبير جداً (الحد الأقصى 15MB)");
+            }
 
-    // تحديث عرض الإحصائيات
-    function updateStatsDisplay() {
-      const stats = loadStats();
-      document.getElementById('correctCount').textContent = `${stats.correct} صحيح`;
-      document.getElementById('incorrectCount').textContent = `${stats.incorrect} خاطئ`;
-    }
-
-    // التحقق من اتصال النموذج
-    function checkConnection() {
-      const statusIndicator = document.getElementById('statusIndicator');
-      const connectionText = document.getElementById('connectionText');
-      
-      const API_KEY = "AIzaSyBSz5PnDP0Arb9PbQqyYsHZr6_vqpLLFcU";
-      
-      if (API_KEY && API_KEY !== "YOUR_GEMINI_API_KEY_HERE") {
-        statusIndicator.classList.remove('offline');
-        statusIndicator.classList.add('online');
-        connectionText.textContent = "النموذج متصل (gemini-2.0-flash)";
-      } else {
-        statusIndicator.classList.remove('online');
-        statusIndicator.classList.add('offline');
-        connectionText.textContent = "النموذج غير متصل (مفتاح API مطلوب)";
-        document.getElementById('analyzeBtn').disabled = true;
-      }
-    }
-
-    // معالجة اختيار الصورة
-    document.getElementById('imageInput').addEventListener('change', async function(e) {
-      if (e.target.files.length > 0) {
-        const file = e.target.files[0];
-        const fileNameElement = document.getElementById('fileName');
-        const processingIndicator = document.getElementById('processingIndicator');
-        const analyzeBtn = document.getElementById('analyzeBtn');
-        
-        // إظهار حالة التحميل
-        fileNameElement.textContent = "جارٍ معالجة الصورة...";
-        fileNameElement.style.display = 'block';
-        analyzeBtn.disabled = true;
-        processingIndicator.style.display = 'none';
-        
-        // معالجة الصورة
-        const processor = new ImageProcessor();
-        await processor.processImage(file);
-        
-        // إظهار المؤشر
-        fileNameElement.textContent = file.name;
-        processingIndicator.style.display = 'block';
-        analyzeBtn.disabled = false;
-      }
+            const processedImage = await processImage(file);
+            currentBase64Image = processedImage.dataUrl;
+            currentImageMetadata = {
+              dimensions: `${processedImage.width}×${processedImage.height} بكسل`,
+              size: processedImage.size,
+              type: processedImage.type
+            };
+            
+            document.getElementById('previewBtn').disabled = false;
+            document.getElementById('analyzeBtn').disabled = false;
+            
+          } catch (error) {
+            showError(error.message);
+            resetFileInput();
+          }
+        }
+      });
     });
 
-    // إعادة تعيين التحليل
-    function resetAnalysis() {
-      document.getElementById('imageInput').value = '';
-      document.getElementById('fileName').textContent = '';
-      document.getElementById('fileName').style.display = 'none';
-      document.getElementById('processingIndicator').style.display = 'none';
-      document.querySelector('.upload-area p').textContent = 'انقر لرفع صورة الشارت';
-      document.getElementById('results').style.display = 'none';
-      document.getElementById('feedbackButtons').style.display = 'none';
-      document.getElementById('newAnalysisBtn').style.display = 'none';
+    function previewImage() {
+      if (!currentBase64Image) {
+        showError("❗ لم يتم تحميل صورة للمعاينة");
+        return;
+      }
+      
+      const modal = document.createElement('div');
+      modal.className = 'preview-modal';
+      modal.innerHTML = `
+        <div class="preview-content">
+          <h3>معاينة الصورة <small>(${currentImageMetadata.dimensions})</small></h3>
+          <img src="${currentBase64Image}" alt="معاينة الصورة">
+          <button class="close-preview" onclick="this.parentElement.parentElement.remove()">
+            <i class="fas fa-times"></i> إغلاق
+          </button>
+        </div>
+      `;
+      
+      document.body.appendChild(modal);
+      modal.style.display = 'flex';
+      
+      modal.addEventListener('click', function(e) {
+        if (e.target === modal) {
+          modal.remove();
+        }
+      });
+    }
+
+    function resetFileInput() {
+      const fileInput = document.getElementById('fileInput');
+      fileInput.value = '';
+      currentBase64Image = null;
+      currentImageMetadata = {};
+      document.getElementById('previewBtn').disabled = true;
       document.getElementById('analyzeBtn').disabled = true;
-      document.getElementById('analyzeBtn').innerHTML = 'بدء التحليل';
+      document.querySelector('.upload-area h3').textContent = 'اسحب وأفلت صورة الشارت هنا';
+      document.querySelector('.upload-area p').textContent = 'أو انقر لاختيار صورة';
+    }
+    
+    function resetAnalysis() {
+      resetFileInput();
+      document.getElementById('resultBox').style.display = 'none';
+      document.getElementById('newAnalysisBtn').style.display = 'none';
+      document.getElementById('errorContainer').style.display = 'none';
+    }
+    
+    async function checkConnection() {
+      const statusElement = document.getElementById("connectionStatus");
+      try {
+        statusElement.innerHTML = '<i class="fas fa-sync-alt fa-spin"></i> جاري الاتصال بالنموذج...';
+        
+        const testResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash?key=AIzaSyBrYzeXqyKs4OqBWuc9_uLc3fEtBihQwD0`);
+        
+        if (testResponse.ok) {
+          statusElement.innerHTML = '<i class="fas fa-check-circle"></i> متصل بنموذج Gemini 2.0 Flash';
+          statusElement.className = "connection-status connected";
+        } else {
+          const errorData = await testResponse.json();
+          throw new Error(errorData.error.message || "فشل الاتصال بالنموذج");
+        }
+      } catch (error) {
+        statusElement.innerHTML = '<i class="fas fa-exclamation-triangle"></i> غير متصل: ' + error.message;
+        statusElement.className = "connection-status disconnected";
+        console.error("Connection Error:", error);
+      }
     }
 
-    // الدوال المساعدة لتحليل النتائج
-    function extractSignal(text) {
-      const patterns = [
-        /الشمعه التاليه:\s*(شراء|بيع)/i,
-        /الاتجاه:\s*(شراء|بيع)/i,
-        /التوصيه:\s*(شراء|بيع)/i,
-        /(شراء|بيع)\s*بنسبة/i
-      ];
-      
-      for (const pattern of patterns) {
-        const match = text.match(pattern);
-        if (match) return match[1];
-      }
-      
-      if (text.includes('شراء')) return 'شراء';
-      if (text.includes('بيع')) return 'بيع';
-      
-      return null;
-    }
-
-    function extractConfidence(text) {
-      const patterns = [
-        /بنسبة ثقة\s*(\d{1,3})%/i,
-        /الثقة:\s*(\d{1,3})%/i,
-        /نسبة\s*(\d{1,3})%/i,
-        /(\d{1,3})%\s*ثقة/i
-      ];
-      
-      for (const pattern of patterns) {
-        const match = text.match(pattern);
-        if (match) return match[1];
-      }
-      
-      const fallbackMatch = text.match(/(\d{1,3})%/);
-      return fallbackMatch ? fallbackMatch[1] : null;
-    }
-
-    function extractPair(text) {
-      const patterns = [
-        /الزوج:\s*([A-Z]{3}\/[A-Z]{3})/i,
-        /زوج:\s*([A-Z]{3}\/[A-Z]{3})/i,
-        /الرمز:\s*([A-Z]{3}\/[A-Z]{3})/i,
-        /([A-Z]{3}\/[A-Z]{3})\s+دعم/i,
-        /([A-Z]{3}\/[A-Z]{3})\s+مقاومة/i
-      ];
-      
-      for (const pattern of patterns) {
-        const match = text.match(pattern);
-        if (match) return match[1];
-      }
-      
-      const fallbackMatch = text.match(/[A-Z]{3}\/[A-Z]{3}/);
-      return fallbackMatch ? fallbackMatch[0] : null;
-    }
-
-    function extractLevel(text, levelType) {
-      const patterns = [
-        new RegExp(`${levelType}:\\s*([\\d\\.]+)`, 'i'),
-        new RegExp(`سعر ${levelType}\\s*([\\d\\.]+)`, 'i'),
-        new RegExp(`${levelType}\\s*عند\\s*([\\d\\.]+)`, 'i')
-      ];
-      
-      for (const pattern of patterns) {
-        const match = text.match(pattern);
-        if (match) return match[1];
-      }
-      
-      const nearbyPattern = new RegExp(`${levelType}[^\\d]*([\\d\\.]+)`);
-      const nearbyMatch = text.match(nearbyPattern);
-      return nearbyMatch ? nearbyMatch[1] : null;
-    }
-
-    function extractReason(text) {
-      const reasonPatterns = [
-        /الاسباب:\s*([^\n]+)/i,
-        /السبب:\s*([^\n]+)/i,
-        /التفسير:\s*([^\n]+)/i,
-        /التحليل:\s*([^\n]+)/i
-      ];
-      
-      for (const pattern of reasonPatterns) {
-        const match = text.match(pattern);
-        if (match) return match[1].trim();
-      }
-      
-      const sentences = text.split(/[\.\n]/).filter(s => s.trim().length > 0);
-      if (sentences.length >= 2) {
-        return sentences.slice(-2).join('. ').trim();
-      }
-      
-      return text.length > 100 ? text.substring(0, 100) + '...' : text;
-    }
-
-    // تحليل نتيجة النموذج بدون قيم افتراضية
-    function parseAnalysisResult(text) {
-      // تنظيف النص أولاً
-      const cleanedText = text.replace(/\s+/g, ' ').trim();
-      
-      // استخراج البيانات بدون قيم افتراضية
-      return {
-        signal: extractSignal(cleanedText),
-        confidence: extractConfidence(cleanedText),
-        pair: extractPair(cleanedText),
-        support: extractLevel(cleanedText, 'دعم'),
-        resistance: extractLevel(cleanedText, 'مقاومة'),
-        reason: extractReason(cleanedText)
-      };
-    }
-
-    // عرض النتيجة بدون قيم افتراضية
-    function displayFormattedResult(data) {
-      const resultContainer = document.getElementById('analysisResult');
-      let html = '';
-      
-      if (data.signal) {
-        const signalClass = data.signal === 'شراء' ? 'signal-call' : 'signal-put';
-        html += `
-          <div class="result-item">
-            <span class="result-label">الإتجاه المتوقع:</span>
-            <span class="result-value ${signalClass}">
-              <i class="fas fa-${data.signal === 'شراء' ? 'arrow-up' : 'arrow-down'}"></i>
-              ${data.signal}
-            </span>
-          </div>
-        `;
-      }
-
-      if (data.confidence) {
-        html += `
-          <div class="result-item">
-            <span class="result-label">نسبة الثقة:</span>
-            <div class="result-value confidence-meter">
-              <span class="confidence-value">${data.confidence}%</span>
-              <div class="confidence-bar">
-                <div class="confidence-level" style="width: ${data.confidence}%"></div>
-              </div>
-            </div>
-          </div>
-        `;
-      }
-
-      if (data.pair) {
-        html += `
-          <div class="result-item">
-            <span class="result-label">الزوج:</span>
-            <span class="result-value">${data.pair}</span>
-          </div>
-        `;
-      }
-
-      if (data.support) {
-        html += `
-          <div class="result-item">
-            <span class="result-label">أقرب دعم:</span>
-            <span class="result-value">${data.support}</span>
-          </div>
-        `;
-      }
-
-      if (data.resistance) {
-        html += `
-          <div class="result-item">
-            <span class="result-label">أقرب مقاومة:</span>
-            <span class="result-value">${data.resistance}</span>
-          </div>
-        `;
-      }
-
-      if (data.reason) {
-        html += `
-          <div class="reason-box">
-            <strong><i class="fas fa-info-circle"></i> التحليل:</strong>
-            <p>${data.reason}</p>
-          </div>
-        `;
-      }
-
-      if (!html) {
-        html = `
-          <div class="error-message">
-            <i class="fas fa-exclamation-triangle"></i>
-            <p>لم يتمكن النموذج من تحليل الصورة، يرجى المحاولة بصورة أخرى</p>
-          </div>
-        `;
-      }
-      
-      resultContainer.innerHTML = html;
-      document.getElementById('results').style.display = 'block';
-      document.getElementById('feedbackButtons').style.display = 'flex';
-      document.getElementById('newAnalysisBtn').style.display = 'block';
-      
-      // تحريك شريط الثقة بسلاسة
-      setTimeout(() => {
-        const confidenceBar = document.querySelector('.confidence-level');
-        if (confidenceBar) confidenceBar.style.width = `${data.confidence}%`;
-      }, 100);
-    }
-
-    // تحليل الصورة باستخدام Gemini API
     async function analyzeImage() {
-      const fileInput = document.getElementById('imageInput');
-      const resultsDiv = document.getElementById('results');
-      const feedbackButtons = document.getElementById('feedbackButtons');
-      const analyzeBtn = document.getElementById('analyzeBtn');
-      const newAnalysisBtn = document.getElementById('newAnalysisBtn');
-
-      if (!fileInput.files[0]) {
-        alert('يرجى اختيار صورة الشارت أولاً');
+      const fileInput = document.getElementById("fileInput");
+      const file = fileInput.files[0];
+      
+      try {
+        if (!file) throw new Error("❗ يرجى اختيار صورة الشارت أولاً");
+      } catch (error) {
+        showError(error.message);
         return;
       }
 
+      const loadingIndicator = document.getElementById("loadingIndicator");
+      const analyzeBtn = document.getElementById("analyzeBtn");
+      loadingIndicator.style.display = "block";
       analyzeBtn.disabled = true;
-      analyzeBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جاري التحليل';
-      resultsDiv.style.display = 'none';
-      feedbackButtons.style.display = 'none';
+      analyzeBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جاري التحليل...';
+      document.getElementById("resultBox").style.display = "none";
+      document.getElementById("errorContainer").style.display = "none";
 
       try {
-        const imageFile = fileInput.files[0];
-        const API_KEY = "AIzaSyBSz5PnDP0Arb9PbQqyYsHZr6_vqpLLFcU";
-        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${API_KEY}`;
-
-        // بناء الـ prompt بطريقة منظمة
-        const promptParts = [
-          "أنت خبير ومحليل فني محترف في تحليل صور الرسوم البيانية لأسواق الفوركس والخيارات الثنائية.",
-          "قم بتحليل صورة الشارت المرفقة من منصة Pocket Option على الإطار الزمني m3،",
-          "وقدم توقعًا لاتجاه الشمعة القادمة فقط (إما شراء أو بيع) مع نسبة الثقة،",
-          "بالاعتماد على:",
-          "1. حركة السعر الحالية وأنماط الشموع",
-          "2. المؤشرات الفنية الظاهرة في الشارت:",
-          "   - المتوسط المتحرك الأسي EMA 9",
-          "   - مؤشر MACD (6,13,5)",
-          "   - مؤشر Stochastic (5,3,3)",
-          "3. مستويات الدعم والمقاومة",
-          "4. تقاطعات المؤشرات المختلفة",
-          "",
-          "أجب بالصيغة التالية بدقة:",
-          "الشمعه التاليه: [شراء/بيع] بنسبة ثقة [XX%]",
-          "الزوج: [XXX/XXX]",
-          "الدعم: [X.XXXX]",
-          "المقاومة: [X.XXXX]",
-          "الاسباب: [وصف مختصر في حدود 50 كلمة]",
-          "",
-          "ملاحظات مهمة:",
-          "- لا تُقدّم أي تنبؤات طويلة المدى",
-          "- القرار يجب أن يكون فقط للشمعة التالية بناءً على الصورة",
-          "- كن دقيقًا في ذكر الأرقام والنسب"
+        // تعريف مراحل التحليل مع أوزانها
+        const stages = [
+          { weight: 15, text: "تحميل الصورة ومعالجتها" },
+          { weight: 25, text: "تحليل الشموع والنماذج" },
+          { weight: 35, text: "تحليل المؤشرات الفنية" },
+          { weight: 25, text: "توليد التوصيات" }
         ];
 
-        const processor = new ImageProcessor();
-        const base64Data = await processor.processImage(imageFile);
-
-        // بناء payload منظم
-        const payload = {
-          contents: [{
-            parts: [
-              { text: promptParts.join('\n') },
-              {
-                inlineData: {
-                  mimeType: 'image/jpeg',
-                  data: base64Data.split(',')[1]
-                }
-              }
-            ]
-          }],
-          generationConfig: {
-            temperature: 0.5,
-            topP: 0.8,
-            topK: 40,
-            maxOutputTokens: 500,
-            stopSequences: ["\n\n"]
-          },
-          safetySettings: [
-            {
-              category: "HARM_CATEGORY_HARASSMENT",
-              threshold: "BLOCK_NONE"
-            },
-            {
-              category: "HARM_CATEGORY_HATE_SPEECH",
-              threshold: "BLOCK_NONE"
-            },
-            {
-              category: "HARM_CATEGORY_SEXUALLY_EXPLICIT",
-              threshold: "BLOCK_NONE"
-            },
-            {
-              category: "HARM_CATEGORY_DANGEROUS_CONTENT",
-              threshold: "BLOCK_NONE"
-            }
-          ]
+        let totalProgress = 0;
+        
+        // دالة تحديث التقدم
+        const updateProgress = (stage) => {
+          totalProgress += stage.weight;
+          document.getElementById("progressBar").style.width = `${totalProgress}%`;
+          document.getElementById("progressText").textContent = `${totalProgress}%`;
+          document.getElementById("loadingMessage").textContent = "جاري التحليل...";
+          document.getElementById("stageDetails").textContent = stage.text;
         };
 
-        const response = await fetch(endpoint, {
-          method: 'POST',
-          headers: { 
-            'Content-Type': 'application/json',
-            'X-Goog-Api-Key': API_KEY
-          },
-          body: JSON.stringify(payload)
-        });
+        // --- المرحلة 1: معالجة الصورة ---
+        updateProgress(stages[0]);
+        const base64 = currentBase64Image.split(",")[1];
+        
+        // --- المرحلة 2: تحليل الشموع ---
+        updateProgress(stages[1]);
+        // (هنا يمكن إضافة تحليلات أولية إذا كانت منفصلة)
+        
+        // --- المرحلة 3: اتصال API الرئيسي ---
+        updateProgress(stages[2]);
+        const apiKey = "AIzaSyBrYzeXqyKs4OqBWuc9_uLc3fEtBihQwD0";
+        const response = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              contents: [
+                {
+                  parts: [
+                    { inlineData: { mimeType: "image/jpeg", data: base64 } },
+                    { text: arabicPrompt }
+                  ]
+                }
+              ]
+            })
+          }
+        );
 
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error?.message || 'خطأ في استجابة النموذج');
-        }
-
+        // --- المرحلة 4: معالجة النتائج ---
+        updateProgress(stages[3]);
         const result = await response.json();
-        const text = result.candidates?.[0]?.content?.parts?.[0]?.text || '';
+        const extractedData = extractAnalysisData(result.candidates[0].content.parts[0].text);
         
-        if (text) {
-          const parsedResult = parseAnalysisResult(text);
-          displayFormattedResult(parsedResult);
-        } else {
-          displayFormattedResult({}); // عرض رسالة خطأ
-        }
+        // إكمال التقدم إلى 100%
+        document.getElementById("progressBar").style.width = "100%";
+        document.getElementById("progressText").textContent = "100%";
+        document.getElementById("stageDetails").textContent = "اكتمل التحليل بنجاح!";
         
-      } catch (err) {
-        console.error('Error:', err);
-        displayFormattedResult({}); // عرض رسالة خطأ
+        // عرض النتائج
+        displayResults(extractedData);
+        document.getElementById("connectionStatus").innerHTML = '<i class="fas fa-check-circle"></i> اتصال ناجح بالنموذج';
+        document.getElementById("connectionStatus").className = "connection-status connected";
+        document.getElementById("newAnalysisBtn").style.display = "block";
+        document.getElementById("validationButtons").style.display = "flex";
         
-        // معالجة خاصة لأنواع مختلفة من الأخطاء
-        if (err.message.includes('API_KEY')) {
-          alert('خطأ في مفتاح API، يرجى التحقق من الإعدادات');
-        } else if (err.message.includes('quota')) {
-          alert('تم تجاوز الحد المسموح به لطلبات API');
-        } else {
-          alert('حدث خطأ أثناء التحليل: ' + err.message);
-        }
+      } catch (error) {
+        console.error("Error:", error);
+        showError(`❌ خطأ في التحليل: ${error.message}`);
+        document.getElementById("connectionStatus").innerHTML = '<i class="fas fa-exclamation-triangle"></i> فشل في الاتصال';
+        document.getElementById("connectionStatus").className = "connection-status disconnected";
+        
+        // في حالة الخطأ، إظهار الحالة الأخيرة
+        document.getElementById("progressBar").style.background = "#f72585";
+        document.getElementById("stageDetails").textContent = "حدث خطأ: " + error.message;
       } finally {
+        loadingIndicator.style.display = "none";
         analyzeBtn.disabled = false;
-        analyzeBtn.innerHTML = 'بدء التحليل';
+        analyzeBtn.innerHTML = '<i class="fas fa-search"></i> بدء التحليل';
       }
     }
 
-    // تحميل الصفحة
-    window.onload = function() {
-      checkConnection();
-      loadStats();
+    function extractAnalysisData(text) {
+      try {
+        const jsonStart = text.indexOf('{');
+        const jsonEnd = text.lastIndexOf('}') + 1;
+        if (jsonStart < 0 || jsonEnd <= 0) {
+          throw new Error("لا يوجد تحليل بتنسيق JSON في الاستجابة");
+        }
+        
+        const jsonString = text.slice(jsonStart, jsonEnd);
+        const data = JSON.parse(jsonString);
+        
+        const requiredFields = ['pair', 'signal', 'confidence', 'supportResistance', 'reason'];
+        const missingFields = requiredFields.filter(field => !data[field]);
+        if (missingFields.length > 0) {
+          throw new Error(`بيانات ناقصة: ${missingFields.join(', ')}`);
+        }
+        
+        if (!['شراء', 'بيع'].includes(data.signal)) {
+          throw new Error(`إشارة غير صالحة: ${data.signal}`);
+        }
+        
+        const confidence = parseInt(data.confidence);
+        if (isNaN(confidence) || confidence < 0 || confidence > 100) {
+          throw new Error(`نسبة الثقة غير صالحة: ${data.confidence}`);
+        }
+        
+        return {
+          pair: data.pair.trim(),
+          signal: data.signal.trim(),
+          confidence: confidence,
+          supportResistance: data.supportResistance.trim(),
+          reason: data.reason.trim()
+        };
+      } catch (e) {
+        throw new Error(`تعذر تحليل استجابة النموذج: ${e.message}`);
+      }
+    }
+
+    function displayResults(data) {
+      document.getElementById("pair").textContent = data.pair || "غير معروف";
+      
+      const signalElement = document.getElementById("signal");
+      signalElement.textContent = data.signal;
+      signalElement.className = data.signal === "شراء" ? "signal-call" : "signal-put";
+      
+      document.getElementById("confidence").textContent = data.confidence;
+      document.getElementById("confidenceBar").style.width = data.confidence + "%";
+      
+      document.getElementById("supportResistance").textContent = data.supportResistance;
+      document.getElementById("reason").textContent = data.reason;
+      
+      document.getElementById("resultBox").style.display = "block";
+    }
+
+    function showError(message) {
+      const errorContainer = document.getElementById("errorContainer");
+      errorContainer.innerHTML = `<i class="fas fa-exclamation-triangle"></i> ${message}`;
+      errorContainer.style.display = "block";
+    }
+
+    function getStatistics() {
+      const defaultStats = { correct: 0, incorrect: 0 };
+      const savedStats = localStorage.getItem('candleAnalysisStats');
+      return savedStats ? JSON.parse(savedStats) : defaultStats;
+    }
+    
+    function updateStatisticsDisplay() {
+      const stats = getStatistics();
+      document.getElementById("correctCount").textContent = stats.correct;
+      document.getElementById("incorrectCount").textContent = stats.incorrect;
+      
+      const total = stats.correct + stats.incorrect;
+      if (total > 0) {
+        document.getElementById("correctBar").style.width = `${(stats.correct / total) * 100}%`;
+        document.getElementById("incorrectBar").style.width = `${(stats.incorrect / total) * 100}%`;
+      }
+    }
+    
+    function validateResult(isCorrect) {
+      const stats = getStatistics();
+      
+      if (isCorrect) {
+        stats.correct += 1;
+        showMessage("تم تسجيل التحليل كصحيح", "success");
+      } else {
+        stats.incorrect += 1;
+        showMessage("تم تسجيل التحليل كخاطئ", "error");
+      }
+      
+      localStorage.setItem('candleAnalysisStats', JSON.stringify(stats));
+      updateStatisticsDisplay();
+    }
+    
+    function showMessage(message, type) {
+      const messageElement = document.createElement('div');
+      messageElement.className = `validation-message ${type}`;
+      messageElement.innerHTML = `<i class="fas fa-${type === 'success' ? 'check' : 'times'}"></i> ${message}`;
+      
+      const validationButtons = document.getElementById("validationButtons");
+      validationButtons.parentNode.insertBefore(messageElement, validationButtons.nextSibling);
       
       setTimeout(() => {
-        document.getElementById('statusIndicator').classList.remove('pulse');
+        messageElement.remove();
       }, 3000);
-    };
+    }
   </script>
 </body>
 </html>
