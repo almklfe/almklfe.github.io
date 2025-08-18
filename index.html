@@ -14,6 +14,7 @@
       --light: #f8f9fa;
       --danger: #f72585;
       --warning: #f8961e;
+      --upload: #7209b7;
     }
     
     * {
@@ -341,27 +342,47 @@
       cursor: pointer;
     }
 
-    /* أنماط مؤشر التقدم الجديدة */
+    /* أنماط أشرطة التقدم */
     .progress-container {
       width: 100%;
       background: #f0f0f0;
       border-radius: 10px;
       margin: 15px 0;
       overflow: hidden;
+      transition: all 0.3s ease;
+    }
+
+    #uploadProgressContainer {
+      background: rgba(114, 9, 183, 0.1);
+      border-left: 4px solid var(--upload);
+      padding: 10px;
     }
 
     .progress-bar {
       height: 8px;
-      background: linear-gradient(90deg, #4361ee, #3a0ca3);
-      width: 0%;
       transition: width 0.5s ease;
     }
 
-    #progressText {
+    #uploadProgressBar {
+      background: linear-gradient(90deg, #7209b7, #b5179e);
+    }
+
+    #progressBar {
+      background: linear-gradient(90deg, #4361ee, #3a0ca3);
+    }
+
+    .progress-text {
       display: block;
       text-align: center;
       margin-top: 5px;
       font-weight: bold;
+    }
+
+    #uploadProgressText {
+      color: #7209b7;
+    }
+
+    #progressText {
       color: #4361ee;
     }
 
@@ -373,6 +394,13 @@
       margin-top: 10px;
       font-size: 13px;
       color: #555;
+    }
+
+    .progress-label {
+      font-weight: bold;
+      margin-bottom: 5px;
+      display: flex;
+      justify-content: space-between;
     }
 
     @media (max-width: 768px) {
@@ -426,12 +454,25 @@
           <i class="fas fa-sync-alt"></i> تحليل جديد
         </button>
         
+        <!-- شريط تقدم تحميل الصورة -->
+        <div class="progress-container" id="uploadProgressContainer" style="display: none;">
+          <div class="progress-label">
+            <span>تحميل الصورة:</span>
+            <span id="uploadProgressText">0%</span>
+          </div>
+          <div class="progress-bar" id="uploadProgressBar" style="width: 0%"></div>
+        </div>
+        
+        <!-- شريط تقدم التحليل الرئيسي -->
         <div id="loadingIndicator" class="loading" style="display: none;">
           <i class="fas fa-circle-notch fa-spin"></i>
           <p id="loadingMessage">جاري الإعداد...</p>
           <div class="progress-container">
-            <div id="progressBar" class="progress-bar"></div>
-            <span id="progressText">0%</span>
+            <div class="progress-label">
+              <span>تقدم التحليل:</span>
+              <span id="progressText">0%</span>
+            </div>
+            <div class="progress-bar" id="progressBar" style="width: 0%"></div>
           </div>
           <div id="stageDetails"></div>
         </div>
@@ -506,8 +547,9 @@
     let currentImageMetadata = {};
     const MAX_WIDTH = 800;
     const QUALITY = 0.85;
+    let uploadCancelled = false;
 
-    const arabicPrompt = `أنت خبير ومحلل فني محترف في تحليل صور الرسوم البيانية لأسواق الفوركس. قم بتحليل صورة الشارت المرفقة من منصة Pocket Option على الإطار الزمني M3، وقدم توقعًا لاتجاه الشمعة القادمة فقط (إما شراء أو بيع) مع نسبة الثقة، وذلك بالاعتماد على:
+    const arabicPrompt = `أنت خبير ومحليل فني محترف في تحليل صور الرسوم البيانية لأسواق الفوركس. قم بتحليل صورة الشارت المرفقة من منصة Pocket Option على الإطار الزمني M3، وقدم توقعًا لاتجاه الشمعة القادمة فقط (إما شراء أو بيع) مع نسبة الثقة، وذلك بالاعتماد على:
 
 1- حركة السعر:
 - اتجاه وقوة الشمعة الحالية (حجم الجسم، الظلال، حجم التداول)
@@ -544,11 +586,30 @@
 
     async function processImage(file) {
       return new Promise((resolve, reject) => {
+        uploadCancelled = false;
         const img = new Image();
         const reader = new FileReader();
         
-        reader.onload = (e) => {
-          img.onload = () => {
+        // إظهار شريط تحميل الصورة
+        document.getElementById("uploadProgressContainer").style.display = "block";
+        updateUploadProgress(10, "جاري قراءة الملف...");
+        
+        reader.onload = async (e) => {
+          if (uploadCancelled) {
+            reject(new Error("تم إلغاء تحميل الصورة"));
+            return;
+          }
+          
+          updateUploadProgress(30, "جاري تحميل البيانات...");
+          
+          img.onload = async () => {
+            if (uploadCancelled) {
+              reject(new Error("تم إلغاء تحميل الصورة"));
+              return;
+            }
+            
+            updateUploadProgress(50, "جاري معالجة الصورة...");
+            
             const canvas = document.createElement('canvas');
             const ctx = canvas.getContext('2d');
             
@@ -566,29 +627,64 @@
             
             ctx.drawImage(img, 0, 0, width, height);
             
+            updateUploadProgress(70, "جاري ضغط الصورة...");
+            
+            // تأخير لمحاكاة عملية الضغط
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
             canvas.toBlob((blob) => {
               if (!blob) {
                 reject(new Error("فشل في معالجة الصورة"));
                 return;
               }
               
+              updateUploadProgress(90, "جاري تحويل الصورة...");
+              
               const newReader = new FileReader();
-              newReader.onload = () => resolve({
-                dataUrl: newReader.result,
-                width: width,
-                height: height,
-                size: (blob.size / (1024 * 1024)).toFixed(2) + 'MB',
-                type: file.type
-              });
+              newReader.onload = () => {
+                updateUploadProgress(100, "اكتمل التحميل بنجاح!");
+                setTimeout(() => {
+                  document.getElementById("uploadProgressContainer").style.display = "none";
+                }, 1000);
+                
+                resolve({
+                  dataUrl: newReader.result,
+                  width: width,
+                  height: height,
+                  size: (blob.size / (1024 * 1024)).toFixed(2) + 'MB',
+                  type: file.type
+                });
+              };
               newReader.readAsDataURL(blob);
             }, file.type, QUALITY);
           };
-          img.onerror = () => reject(new Error("فشل في تحميل الصورة"));
+          
+          img.onerror = () => {
+            reject(new Error("فشل في تحميل الصورة"));
+          };
+          
           img.src = e.target.result;
         };
-        reader.onerror = () => reject(new Error("فشل في قراءة الملف"));
+        
+        reader.onerror = () => {
+          reject(new Error("فشل في قراءة الملف"));
+        };
+        
         reader.readAsDataURL(file);
       });
+    }
+
+    function updateUploadProgress(percent, message) {
+      document.getElementById("uploadProgressBar").style.width = `${percent}%`;
+      document.getElementById("uploadProgressText").textContent = `${percent}%`;
+      document.querySelector("#uploadProgressContainer .progress-label span:first-child").textContent = message;
+    }
+
+    function cancelUpload() {
+      uploadCancelled = true;
+      document.getElementById("uploadProgressContainer").style.display = "none";
+      resetFileInput();
+      showError("تم إلغاء تحميل الصورة");
     }
 
     document.addEventListener('DOMContentLoaded', async function() {
@@ -620,7 +716,9 @@
             document.getElementById('analyzeBtn').disabled = false;
             
           } catch (error) {
-            showError(error.message);
+            if (!uploadCancelled) {
+              showError(error.message);
+            }
             resetFileInput();
           }
         }
@@ -671,6 +769,7 @@
       document.getElementById('resultBox').style.display = 'none';
       document.getElementById('newAnalysisBtn').style.display = 'none';
       document.getElementById('errorContainer').style.display = 'none';
+      document.getElementById('uploadProgressContainer').style.display = 'none';
     }
     
     async function checkConnection() {
@@ -739,7 +838,8 @@
         
         // --- المرحلة 2: تحليل الشموع ---
         updateProgress(stages[1]);
-        // (هنا يمكن إضافة تحليلات أولية إذا كانت منفصلة)
+        // محاكاة عملية التحليل
+        await new Promise(resolve => setTimeout(resolve, 1500));
         
         // --- المرحلة 3: اتصال API الرئيسي ---
         updateProgress(stages[2]);
