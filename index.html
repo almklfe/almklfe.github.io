@@ -563,6 +563,17 @@
         ::-webkit-scrollbar-thumb:hover {
             background: var(--secondary);
         }
+
+        .prediction-alert {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white;
+            padding: 10px;
+            border-radius: 8px;
+            margin: 10px 0;
+            text-align: center;
+            font-weight: bold;
+            animation: pulse 1s infinite;
+        }
     </style>
 </head>
 <body>
@@ -693,6 +704,9 @@
                         <div class="timer" id="resultTimer">10s</div>
                     </div>
                     <div class="prediction-content">
+                        <div class="prediction-alert" id="predictionAlert">
+                            🚀 تنبؤ للشمعة القادمة - يظهر قبل الإغلاق ب 3 ثواني
+                        </div>
                         <div id="predictionDirection" class="direction-badge"></div>
                         
                         <div style="margin: 20px 0;">
@@ -958,7 +972,7 @@
                 const distanceToResistance = resistance - currentPrice;
                 
                 if (distanceToSupport < distanceToResistance * 0.5) {
-                    details.push('السعر قريب من الدعم ← احتمالية rimbalzo');
+                    details.push('السعر قريب من الدعم ← احتمالية ريمبالزو');
                     if (direction === 'شراء') confidence += 5;
                 } else if (distanceToResistance < distanceToSupport * 0.5) {
                     details.push('السعر قريب من المقاومة ← احتمالية تراجع');
@@ -1003,10 +1017,44 @@
         let isAutoPredicting = false;
         let predictionHistory = [];
         let serverTimeOffset = 0;
+        let predictionInterval = null;
 
-        async function startLiveDataCycle() {
+        // 🔥 النظام الجديد: التنبؤ قبل الإغلاق ب 3 ثواني
+        function startPreCandlePrediction() {
             if (!isAutoPredicting) return;
 
+            // حساب الوقت المتبقي للشمعة القادمة
+            const now = new Date();
+            const seconds = now.getSeconds();
+            const milliseconds = now.getMilliseconds();
+            
+            // الوقت المتبقي حتى نهاية الدقيقة (إغلاق الشمعة)
+            const timeToCandleClose = (60 - seconds) * 1000 - milliseconds;
+            
+            // الوقت المتبقي حتى ظهور التنبؤ (3 ثواني قبل الإغلاق)
+            const timeToPrediction = timeToCandleClose - 3000;
+            
+            if (timeToPrediction > 0) {
+                // جدولة التنبؤ قبل 3 ثواني من الإغلاق
+                setTimeout(async () => {
+                    if (isAutoPredicting) {
+                        await generateAndDisplayPrediction();
+                    }
+                }, timeToPrediction);
+            } else {
+                // إذا كان الوقت أقل من 3 ثواني، ننتظر الشمعة التالية
+                const timeToNextCandle = timeToCandleClose + 60000; // دقيقة كاملة
+                const timeToNextPrediction = timeToNextCandle - 3000;
+                
+                setTimeout(() => {
+                    if (isAutoPredicting) {
+                        startPreCandlePrediction();
+                    }
+                }, timeToNextPrediction);
+            }
+        }
+
+        async function generateAndDisplayPrediction() {
             try {
                 const liveData = await freeAI.getLiveData(currentPair);
                 freeAI.updateHistoricalData(currentPair, liveData);
@@ -1018,16 +1066,21 @@
                 displayPredictionResult(prediction);
                 addToHistory(prediction);
 
+                // بعد عرض النتيجة، نستعد للتنبؤ التالي
+                if (isAutoPredicting) {
+                    setTimeout(startPreCandlePrediction, 1000); // نبدأ بعد ثانية واحدة
+                }
+
             } catch (error) {
                 console.log('استخدام النظام الاحتياطي');
                 const prediction = freeAI.generateBasicPrediction(currentPair);
                 prediction.pair = currentPair;
                 displayPredictionResult(prediction);
                 addToHistory(prediction);
-            }
-
-            if (isAutoPredicting) {
-                setTimeout(startLiveDataCycle, 30000);
+                
+                if (isAutoPredicting) {
+                    setTimeout(startPreCandlePrediction, 1000);
+                }
             }
         }
 
@@ -1061,10 +1114,11 @@
             isAutoPredicting = true;
             const predictBtn = document.getElementById('predictBtn');
             predictBtn.disabled = true;
-            predictBtn.innerHTML = '<i class="fas fa-sync-alt fa-spin"></i> جاري التحليل بالبيانات الحية...';
+            predictBtn.innerHTML = '<i class="fas fa-sync-alt fa-spin"></i> جاري التحليل التلقائي...';
             predictBtn.classList.remove('pulse');
             
-            await startLiveDataCycle();
+            // بدء نظام التنبؤ قبل الإغلاق ب 3 ثواني
+            startPreCandlePrediction();
         }
 
         function selectPair(pair) {
@@ -1237,6 +1291,7 @@
             updatePerformanceStats();
             
             if (window.resultTimerInterval) clearInterval(window.resultTimerInterval);
+            if (predictionInterval) clearInterval(predictionInterval);
         }
 
         window.onload = async function() {
