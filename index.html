@@ -1,319 +1,1121 @@
-import React, { useEffect, useRef, useState } from "react";
-
-// ScalpWeb - Real-time Crypto Scalping Tool
-// Single-file React component (default export)
-// Uses Binance websocket (public) for trade stream and builds 1s candles
-// Implements 3 lightweight scalping heuristics:
-// 1) Breakout Volume: spike in volume vs short MA
-// 2) Momentum Shift: short EMA slope + RSI-like momentum
-// 3) Micro-Trend Direction: fast EMA crossover
-// Emits a unified signal (⬆️/⬇️) with strength 0-100 and logs steps
-
-// NOTE for the user:
-// - This runs fully in the browser (no server required)
-// - If you open it locally, use a simple dev server (Vite / CRA / CodeSandbox) to avoid CORS/secure context issues
-// - The code is conservative and intended for analysis/signals only — NOT trade execution
-
-// -------------------- Helpers --------------------
-function ema(values, period) {
-  const k = 2 / (period + 1);
-  let emaPrev = values[0] || 0;
-  const out = [emaPrev];
-  for (let i = 1; i < values.length; i++) {
-    emaPrev = values[i] * k + emaPrev * (1 - k);
-    out.push(emaPrev);
-  }
-  return out;
-}
-
-function sma(values, period) {
-  const out = [];
-  let sum = 0;
-  for (let i = 0; i < values.length; i++) {
-    sum += values[i];
-    if (i >= period) sum -= values[i - period];
-    if (i >= period - 1) out.push(sum / period);
-  }
-  return out;
-}
-
-function formatNumber(n, decimals = 6) {
-  return Number(n).toFixed(decimals);
-}
-
-// -------------------- Component --------------------
-export default function ScalpWeb() {
-  const [symbol, setSymbol] = useState("btcusdt");
-  const [wsStatus, setWsStatus] = useState("stopped");
-  const [lastSignal, setLastSignal] = useState(null);
-  const [log, setLog] = useState([]);
-  const wsRef = useRef(null);
-  const tradesBufferRef = useRef([]); // raw trades for current second
-  const candlesRef = useRef([]); // built 1s candles (most recent last)
-  const tickTimerRef = useRef(null);
-  const [isRunning, setIsRunning] = useState(false);
-  const maxCandles = 300; // keep last N seconds
-
-  // helper to push to log (with limit)
-  function pushLog(line) {
-    const time = new Date().toLocaleTimeString();
-    setLog((l) => {
-      const out = [`[${time}] ${line}`, ...l];
-      if (out.length > 500) out.pop();
-      return out;
-    });
-  }
-
-  // Build candle from trades buffer
-  function buildCandleFromTrades(trades) {
-    if (!trades || trades.length === 0) return null;
-    let open = Number(trades[0].p);
-    let high = open;
-    let low = open;
-    let close = Number(trades[trades.length - 1].p);
-    let volume = trades.reduce((s, t) => s + Number(t.q), 0);
-    for (const t of trades) {
-      const p = Number(t.p);
-      if (p > high) high = p;
-      if (p < low) low = p;
-    }
-    return { t: Date.now(), open, high, low, close, volume };
-  }
-
-  // Compute indicators and heuristics
-  function analyzeCandles(candles) {
-    // candles: array of {t, open, high, low, close, volume}
-    if (candles.length < 10) return null;
-
-    // prepare arrays
-    const closes = candles.map((c) => c.close);
-    const volumes = candles.map((c) => c.volume);
-
-    // EMA fast/slow
-    const emaFastArr = ema(closes, 5);
-    const emaSlowArr = ema(closes, 13);
-    const emaFast = emaFastArr[emaFastArr.length - 1];
-    const emaSlow = emaSlowArr[emaSlowArr.length - 1];
-    const emaPrev = emaFastArr[emaFastArr.length - 2] || emaFast;
-
-    // momentum-ish (difference of last closes)
-    const momentum = closes[closes.length - 1] - closes[closes.length - 2];
-
-    // volume spike detection: compare last volume to MA of last 20
-    const volMA = sma(volumes, Math.min(20, volumes.length))[
-      Math.max(0, sma(volumes, Math.min(20, volumes.length)).length - 1)
-    ];
-    const lastVol = volumes[volumes.length - 1];
-    const volSpikeRatio = volMA && volMA > 0 ? lastVol / volMA : 1;
-
-    // micro-trend: ema crossover
-    let microTrend = 0; // +1 up, -1 down
-    if (emaFast > emaSlow && emaPrev <= (emaSlowArr[emaSlowArr.length - 2] || emaSlow)) microTrend = 1;
-    if (emaFast < emaSlow && emaPrev >= (emaSlowArr[emaSlowArr.length - 2] || emaSlow)) microTrend = -1;
-
-    // momentum strength normalized
-    const priceRange = Math.max(...closes.slice(-20)) - Math.min(...closes.slice(-20)) || 1;
-    const momentumStrength = Math.min(1, Math.abs(momentum) / priceRange);
-
-    // Build signals from heuristics
-    const breakoutScore = Math.min(1, Math.max(0, (volSpikeRatio - 1) / 2)); // if volSpikeRatio 3 => score 1
-    const momentumScore = momentumStrength;
-    const trendScore = microTrend === 0 ? 0.5 : 1.0; // if crossover happened, stronger
-
-    // Determine direction bias: sign of momentum and EMA slope
-    const bias = (momentum > 0 ? 1 : momentum < 0 ? -1 : 0) + (emaFast > emaSlow ? 1 : emaFast < emaSlow ? -1 : 0);
-    const dir = bias > 0 ? 1 : bias < 0 ? -1 : 0;
-
-    // Aggregate strength 0-100
-    const rawStrength = (breakoutScore * 0.4 + momentumScore * 0.35 + trendScore * 0.25) * 100;
-    const finalStrength = Math.round(rawStrength);
-
-    return {
-      dir: dir, // 1 up, -1 down, 0 neutral
-      strength: finalStrength,
-      breakoutScore: Math.round(breakoutScore * 100),
-      momentumScore: Math.round(momentumScore * 100),
-      trendScore: Math.round(trendScore * 100),
-      volSpikeRatio: Number(volSpikeRatio.toFixed(2)),
-      emaFast: Number(emaFast.toFixed(6)),
-      emaSlow: Number(emaSlow.toFixed(6)),
-      lastPrice: closes[closes.length - 1],
-    };
-  }
-
-  // Decide whether to emit a signal
-  function decideSignal(analysis) {
-    if (!analysis) return null;
-    const { dir, strength, breakoutScore, momentumScore } = analysis;
-    // thresholds tuned for conservatism in scalping
-    if (dir === 0) return null;
-    if (strength < 45) return null; // ignore weak
-    // additional check: breakoutScore or momentumScore high
-    if (breakoutScore < 20 && momentumScore < 25) return null;
-
-    return { dir, strength };
-  }
-
-  // Tick handler: called every second
-  function tick() {
-    try {
-      const trades = tradesBufferRef.current;
-      const candle = buildCandleFromTrades(trades);
-      tradesBufferRef.current = []; // reset buffer
-      if (candle) {
-        candlesRef.current.push(candle);
-        if (candlesRef.current.length > maxCandles) candlesRef.current.shift();
-        // analyze last 40 candles
-        const last = candlesRef.current.slice(-60);
-        const analysis = analyzeCandles(last);
-        const signal = decideSignal(analysis);
-        if (signal) {
-          const s = { time: new Date().toISOString(), symbol, dir: signal.dir, strength: signal.strength, analysis };
-          setLastSignal(s);
-          pushLog(`SIGNAL ${symbol.toUpperCase()} ${signal.dir === 1 ? "⬆️ BUY" : "⬇️ SELL"} | strength ${signal.strength}`);
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>أداة تحليل الشارت - Binance Scalping</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         }
-      }
-    } catch (e) {
-      pushLog("Tick error: " + e.message);
-    }
-  }
-
-  // Start WS and timer
-  function start() {
-    if (isRunning) return;
-    setLog([]);
-    setLastSignal(null);
-    setIsRunning(true);
-    setWsStatus("connecting");
-
-    // open websocket to Binance trade stream
-    const stream = `wss://stream.binance.com:9443/ws/${symbol}@trade`;
-    try {
-      const ws = new WebSocket(stream);
-      wsRef.current = ws;
-      ws.onopen = () => {
-        setWsStatus("open");
-        pushLog("WebSocket open to " + stream);
-      };
-      ws.onmessage = (ev) => {
-        try {
-          const data = JSON.parse(ev.data);
-          // trade data fields: p (price), q (qty), T (trade time)
-          // push into buffer for current second
-          tradesBufferRef.current.push({ p: data.p, q: data.q, T: data.T });
-        } catch (e) {
-          // ignore
+        
+        body {
+            background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+            color: #fff;
+            min-height: 100vh;
+            padding: 20px;
+            line-height: 1.6;
         }
-      };
-      ws.onclose = () => {
-        setWsStatus("closed");
-        pushLog("WebSocket closed");
-      };
-      ws.onerror = (err) => {
-        setWsStatus("error");
-        pushLog("WebSocket error");
-      };
-    } catch (e) {
-      pushLog("WS start error: " + e.message);
-      setWsStatus("error");
-    }
-
-    // start tick timer (1s)
-    tickTimerRef.current = setInterval(tick, 1000);
-  }
-
-  function stop() {
-    setIsRunning(false);
-    if (wsRef.current) {
-      try {
-        wsRef.current.close();
-      } catch (e) {}
-      wsRef.current = null;
-    }
-    if (tickTimerRef.current) {
-      clearInterval(tickTimerRef.current);
-      tickTimerRef.current = null;
-    }
-    setWsStatus("stopped");
-    pushLog("Stopped");
-  }
-
-  useEffect(() => {
-    return () => {
-      stop();
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // UI render
-  return (
-    <div className="p-4 max-w-3xl mx-auto font-sans">
-      <h1 className="text-2xl font-bold mb-2">ScalpWeb — أداة سكالبنغ لحظية (متصفح)</h1>
-      <p className="mb-4">تشغيل مباشر من سعر Binance (WebSocket). مخصصة لتحليل الشموع وإنتاج إشارات سريعة.</p>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mb-4">
-        <input
-          className="p-2 border rounded col-span-2"
-          value={symbol}
-          onChange={(e) => setSymbol(e.target.value.toLowerCase())}
-          disabled={isRunning}
-          placeholder="symbol e.g. btcusdt"
-        />
-        <div className="flex gap-2">
-          <button
-            className="px-3 py-2 rounded bg-green-500 text-white disabled:opacity-50"
-            onClick={() => start()}
-            disabled={isRunning}
-          >
-            Start
-          </button>
-          <button
-            className="px-3 py-2 rounded bg-red-500 text-white disabled:opacity-50"
-            onClick={() => stop()}
-            disabled={!isRunning}
-          >
-            Stop
-          </button>
-        </div>
-      </div>
-
-      <div className="mb-4">
-        <strong>WebSocket:</strong> <span className="capitalize">{wsStatus}</span>
-        <div className="mt-2">Last signal:</div>
-        <div className="p-3 rounded border mt-1">
-          {lastSignal ? (
-            <div>
-              <div>
-                <strong>{symbol.toUpperCase()}</strong> — {lastSignal.dir === 1 ? "⬆️ BUY" : "⬇️ SELL"}
-              </div>
-              <div>Strength: {lastSignal.strength}%</div>
-              <div>Last price: {formatNumber(lastSignal.analysis.lastPrice, 6)}</div>
-              <div>Vol spike ratio: {lastSignal.analysis.volSpikeRatio}</div>
-              <div className="text-sm text-gray-600 mt-2">Signal time: {new Date(lastSignal.time).toLocaleTimeString()}</div>
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #00d4ff;
+            position: relative;
+        }
+        
+        .connection-status {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            background: rgba(0, 0, 0, 0.3);
+        }
+        
+        .status-indicator {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+        
+        .status-connected {
+            background-color: #00ff88;
+            box-shadow: 0 0 10px #00ff88;
+        }
+        
+        .status-disconnected {
+            background-color: #ff5555;
+            box-shadow: 0 0 10px #ff5555;
+        }
+        
+        .status-checking {
+            background-color: #ffaa00;
+            box-shadow: 0 0 10px #ffaa00;
+            animation: pulse 1.5s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        h1 {
+            color: #00d4ff;
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            text-shadow: 0 0 10px rgba(0, 212, 255, 0.5);
+        }
+        
+        .subtitle {
+            color: #aaa;
+            font-size: 1.1rem;
+        }
+        
+        .connection-info {
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 20px;
+            border: 2px solid #444;
+            text-align: center;
+        }
+        
+        .upload-section {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .chart-box {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 15px;
+            padding: 20px;
+            border: 2px dashed #444;
+            transition: all 0.3s;
+            text-align: center;
+        }
+        
+        .chart-box.active {
+            border-color: #00ff88;
+            background: rgba(0, 255, 136, 0.05);
+        }
+        
+        .chart-title {
+            color: #00d4ff;
+            margin-bottom: 15px;
+            font-size: 1.3rem;
+        }
+        
+        .upload-btn {
+            display: block;
+            width: 100%;
+            padding: 15px;
+            background: #0066cc;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 1rem;
+            margin-top: 10px;
+            transition: all 0.3s;
+        }
+        
+        .upload-btn:hover {
+            background: #0052a3;
+            transform: translateY(-2px);
+        }
+        
+        .upload-btn:disabled {
+            background: #444;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .analyze-btn {
+            display: block;
+            width: 300px;
+            padding: 20px;
+            background: linear-gradient(90deg, #00b09b, #96c93d);
+            color: white;
+            border: none;
+            border-radius: 15px;
+            cursor: pointer;
+            font-size: 1.3rem;
+            font-weight: bold;
+            margin: 30px auto;
+            transition: all 0.3s;
+            letter-spacing: 1px;
+        }
+        
+        .analyze-btn:disabled {
+            background: #666;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        
+        .analyze-btn:hover:not(:disabled) {
+            transform: scale(1.05);
+            box-shadow: 0 0 20px rgba(150, 201, 61, 0.7);
+        }
+        
+        .result-section {
+            background: rgba(0, 0, 0, 0.7);
+            border-radius: 15px;
+            padding: 25px;
+            margin-top: 30px;
+            border-left: 5px solid #00d4ff;
+            display: none;
+        }
+        
+        .result-title {
+            color: #00d4ff;
+            font-size: 1.8rem;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        .result-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+        }
+        
+        .result-item {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 15px;
+            border-radius: 10px;
+            border-left: 4px solid;
+        }
+        
+        .result-label {
+            color: #aaa;
+            font-size: 0.9rem;
+            margin-bottom: 5px;
+        }
+        
+        .result-value {
+            font-size: 1.3rem;
+            font-weight: bold;
+        }
+        
+        .buy {
+            color: #00ff88;
+            border-left-color: #00ff88;
+        }
+        
+        .sell {
+            color: #ff5555;
+            border-left-color: #ff5555;
+        }
+        
+        .confidence-high {
+            color: #00ff88;
+        }
+        
+        .confidence-medium {
+            color: #ffaa00;
+        }
+        
+        .confidence-low {
+            color: #ff5555;
+        }
+        
+        .preview-img {
+            max-width: 100%;
+            max-height: 150px;
+            margin-top: 10px;
+            border-radius: 8px;
+            display: none;
+        }
+        
+        .loading {
+            display: none;
+            text-align: center;
+            margin: 20px 0;
+        }
+        
+        .spinner {
+            border: 5px solid rgba(255, 255, 255, 0.1);
+            border-top: 5px solid #00d4ff;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .error {
+            background: rgba(255, 50, 50, 0.1);
+            border: 1px solid #ff5555;
+            color: #ffaaaa;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 20px 0;
+            display: none;
+        }
+        
+        .success {
+            background: rgba(50, 255, 50, 0.1);
+            border: 1px solid #00ff88;
+            color: #aaffaa;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+        
+        .info-box {
+            background: rgba(0, 212, 255, 0.1);
+            border: 1px solid #00d4ff;
+            color: #aaddff;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+        
+        footer {
+            text-align: center;
+            margin-top: 40px;
+            color: #777;
+            font-size: 0.9rem;
+            padding-top: 20px;
+            border-top: 1px solid #444;
+        }
+        
+        .image-counter {
+            display: inline-block;
+            background: rgba(0, 212, 255, 0.2);
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            margin-top: 5px;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 2px;
+            margin-top: 10px;
+            overflow: hidden;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #00b09b, #96c93d);
+            width: 0%;
+            transition: width 0.3s;
+        }
+        
+        .api-key-section {
+            background: rgba(0, 0, 0, 0.6);
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border: 2px solid #444;
+        }
+        
+        .key-input {
+            width: 100%;
+            padding: 12px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid #555;
+            border-radius: 8px;
+            color: white;
+            font-size: 1rem;
+            margin-top: 10px;
+            direction: ltr;
+            text-align: left;
+            font-family: monospace;
+        }
+        
+        .key-input:focus {
+            outline: none;
+            border-color: #00d4ff;
+        }
+        
+        .save-key-btn {
+            background: #00b09b;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            margin-top: 10px;
+            font-size: 1rem;
+            transition: all 0.3s;
+        }
+        
+        .save-key-btn:hover {
+            background: #009688;
+            transform: translateY(-2px);
+        }
+        
+        .test-key-btn {
+            background: #0066cc;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            margin-top: 10px;
+            margin-right: 10px;
+            font-size: 1rem;
+            transition: all 0.3s;
+        }
+        
+        .test-key-btn:hover {
+            background: #0052a3;
+            transform: translateY(-2px);
+        }
+        
+        .key-actions {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 15px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="connection-status" id="global-status">
+                <span class="status-indicator status-checking"></span>
+                <span id="global-status-text">جاري الاتصال...</span>
             </div>
-          ) : (
-            <div className="text-gray-600">لا توجد إشارات بعد — ابدأ التشغيل لمشاهدة النتائج.</div>
-          )}
+            
+            <h1>🤖 أداة تحليل الشارتات بالذكاء الاصطناعي</h1>
+            <p class="subtitle">مدعومة بـ Gemini 2.0 Flash - اتصال تلقائي</p>
+        </header>
+        
+        <div class="api-key-section">
+            <h3 style="color:#00d4ff; margin-bottom:15px;">🔑 إعدادات مفتاح API</h3>
+            <p style="color:#aaa; margin-bottom:10px;">
+                أدخل مفتاح Gemini API الخاص بك للحصول على 60 طلب مجاني يومياً
+            </p>
+            <input type="text" id="api-key-input" class="key-input" 
+                   placeholder="أدخل مفتاح API هنا (مثال: AIzaSyBxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx)" 
+                   value="AIzaSyAcESLFwWV1Fdp6HOLMu7UkhuPoUhRiJvg">
+            
+            <div class="key-actions">
+                <div>
+                    <button class="test-key-btn" onclick="testAPIKey()">🔍 اختبار المفتاح</button>
+                    <button class="save-key-btn" onclick="saveAPIKey()">💾 حفظ المفتاح</button>
+                </div>
+                <div style="color:#aaa; font-size:0.9rem;">
+                    <span id="quota-info">الطلبات المتبقية: --</span>
+                </div>
+            </div>
+            
+            <div class="info-box" id="key-help" style="display:block;">
+                <strong>🎯 كيفية الحصول على مفتاح مجاني:</strong><br>
+                1. اذهب إلى <a href="https://makersuite.google.com/app/apikey" target="_blank" style="color:#00d4ff;">makersuite.google.com/app/apikey</a><br>
+                2. سجل الدخول بحساب Google<br>
+                3. انقر على "Create API Key"<br>
+                4. انسخ المفتاح والصقه هنا<br>
+                5. احفظ المفتاح لتبدأ التحليل
+            </div>
         </div>
-      </div>
-
-      <div className="mb-4">
-        <details className="p-3 border rounded">
-          <summary className="font-semibold cursor-pointer">سجل الأحداث (Console log)</summary>
-          <div className="max-h-64 overflow-auto mt-2 text-xs font-mono">
-            {log.length === 0 ? <div className="text-gray-500">سجل فارغ</div> : log.map((l, i) => <div key={i}>{l}</div>)}
-          </div>
-        </details>
-      </div>
-
-      <div className="text-sm text-gray-700">
-        <strong>ملاحظات مهمة:</strong>
-        <ul className="list-disc ml-6">
-          <li>الأداة تعتمد على بيانات Binance العامة (wss). استخدم رموز الأزدواج مثل <code>btcusdt</code>, <code>ethusdt</code>.</li>
-          <li>هذه إشارات تحليلية للمساعدة فقط — لا تعتمد عليها وحدها. استخدم وقف خسارة وإدارة مخاطرة مناسبة.</li>
-          <li>في الهواتف (Kiwi Browser) يفضل فتح الصفحة عبر HTTPS أو عبر CodeSandbox/Glitch لكي يعمل WebSocket بثبات.</li>
-        </ul>
-      </div>
+        
+        <div class="connection-info">
+            <div class="success" id="connection-success" style="display:none;">
+                ✓ متصل بنجاح بـ Gemini API - جاهز للاستخدام
+            </div>
+            <div class="error" id="connection-error" style="display:none;">
+                ✗ فشل الاتصال بـ Gemini API. الرجاء التحقق من المفتاح
+            </div>
+            <div class="progress-bar">
+                <div class="progress-fill" id="connection-progress"></div>
+            </div>
+        </div>
+        
+        <div class="upload-section">
+            <div class="chart-box" id="m1-box">
+                <h3 class="chart-title">📊 الإطار الزمني M1 (1 دقيقة)</h3>
+                <p>ارفع صورة شارت الدقيقة الواحدة</p>
+                <input type="file" id="m1-upload" accept="image/*" style="display: none;">
+                <button class="upload-btn" id="m1-btn" onclick="document.getElementById('m1-upload').click()" disabled>
+                    رفع صورة M1
+                </button>
+                <img id="m1-preview" class="preview-img" alt="معاينة M1">
+                <div class="image-counter" id="m1-counter" style="display:none;">1/3</div>
+            </div>
+            
+            <div class="chart-box" id="m5-box">
+                <h3 class="chart-title">📈 الإطار الزمني M5 (5 دقائق)</h3>
+                <p>ارفع صورة شارت الخمس دقائق</p>
+                <input type="file" id="m5-upload" accept="image/*" style="display: none;">
+                <button class="upload-btn" id="m5-btn" onclick="document.getElementById('m5-upload').click()" disabled>
+                    رفع صورة M5
+                </button>
+                <img id="m5-preview" class="preview-img" alt="معاينة M5">
+                <div class="image-counter" id="m5-counter" style="display:none;">2/3</div>
+            </div>
+            
+            <div class="chart-box" id="m15-box">
+                <h3 class="chart-title">📉 الإطار الزمني M15 (15 دقيقة)</h3>
+                <p>ارفع صورة شارت الربع ساعة</p>
+                <input type="file" id="m15-upload" accept="image/*" style="display: none;">
+                <button class="upload-btn" id="m15-btn" onclick="document.getElementById('m15-upload').click()" disabled>
+                    رفع صورة M15
+                </button>
+                <img id="m15-preview" class="preview-img" alt="معاينة M15">
+                <div class="image-counter" id="m15-counter" style="display:none;">3/3</div>
+            </div>
+        </div>
+        
+        <button class="analyze-btn" id="analyze-btn" onclick="analyzeChartsWithAI()" disabled>
+            🤖 تحليل بالذكاء الاصطناعي
+        </button>
+        
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p>جاري تحليل الصور باستخدام Gemini AI...</p>
+            <p id="loading-details" style="color:#aaa; font-size:0.9rem;"></p>
+            <div class="progress-bar" style="margin-top:20px; width:80%; margin-left:auto; margin-right:auto;">
+                <div class="progress-fill" id="analysis-progress"></div>
+            </div>
+        </div>
+        
+        <div class="result-section" id="result-section">
+            <h2 class="result-title">📋 نتائج تحليل الذكاء الاصطناعي</h2>
+            
+            <div class="result-grid">
+                <div class="result-item" id="trade-type">
+                    <div class="result-label">نوع الصفقة</div>
+                    <div class="result-value">جارٍ التحليل...</div>
+                </div>
+                
+                <div class="result-item" id="confidence">
+                    <div class="result-label">نسبة الثقة</div>
+                    <div class="result-value">--%</div>
+                </div>
+                
+                <div class="result-item">
+                    <div class="result-label">منطقة الدخول</div>
+                    <div class="result-value" id="entry">جارٍ التحليل...</div>
+                </div>
+                
+                <div class="result-item">
+                    <div class="result-label">الهدف الأول</div>
+                    <div class="result-value" id="target1">جارٍ التحليل...</div>
+                </div>
+                
+                <div class="result-item">
+                    <div class="result-label">الهدف الثاني</div>
+                    <div class="result-value" id="target2">جارٍ التحليل...</div>
+                </div>
+            </div>
+            
+            <div class="result-item" style="margin-top: 20px; grid-column: 1 / -1;">
+                <div class="result-label">التحليل التفصيلي</div>
+                <div class="result-value" id="reasons" style="font-weight: normal; line-height: 1.8;">
+                    جاري معالجة الصور وتحليل الأنماط الفنية...
+                </div>
+            </div>
+            
+            <div class="result-item" style="margin-top: 20px; grid-column: 1 / -1;">
+                <div class="result-label">ملاحظات الذكاء الاصطناعي</div>
+                <div class="result-value" id="ai-notes" style="font-weight: normal; line-height: 1.8; color:#aaa;">
+                    سيظهر هنا التحليل المفصل من نموذج Gemini
+                </div>
+            </div>
+        </div>
+        
+        <footer>
+            <p>⚠️ التحليل المقدم بواسطة الذكاء الاصطناعي ولا يعتبر توصية استثمارية. تحمل التداولات مخاطر خسارة رأس المال.</p>
+            <p>© 2024 AI Chart Analyzer - Gemini 2.0 Flash API</p>
+        </footer>
     </div>
-  );
-}
+
+    <script>
+        // ✅ الإعدادات الأساسية
+        const MODEL_NAME = "gemini-2.0-flash-exp";
+        const appState = {
+            isConnected: false,
+            m1Image: null,
+            m5Image: null,
+            m15Image: null,
+            uploadedCount: 0,
+            apiKey: null,
+            dailyQuota: 60,
+            usedQuota: 0
+        };
+        
+        document.addEventListener('DOMContentLoaded', async function() {
+            // تحميل المفتاح المحفوظ
+            loadSavedAPIKey();
+            await autoConnect();
+            setupImageUpload('m1-upload', 'm1-preview', 'm1', 'm1-box', 'm1-counter');
+            setupImageUpload('m5-upload', 'm5-preview', 'm5', 'm5-box', 'm5-counter');
+            setupImageUpload('m15-upload', 'm15-preview', 'm15', 'm15-box', 'm15-counter');
+        });
+        
+        function loadSavedAPIKey() {
+            const savedKey = localStorage.getItem('gemini_api_key');
+            if (savedKey) {
+                document.getElementById('api-key-input').value = savedKey;
+                appState.apiKey = savedKey;
+            }
+        }
+        
+        function saveAPIKey() {
+            const keyInput = document.getElementById('api-key-input').value.trim();
+            if (!keyInput) {
+                alert('الرجاء إدخال مفتاح API');
+                return;
+            }
+            
+            if (!keyInput.startsWith('AIza')) {
+                if (!confirm('المفتاح لا يبدو بصيغة صحيحة. هل تريد الاستمرار؟')) {
+                    return;
+                }
+            }
+            
+            localStorage.setItem('gemini_api_key', keyInput);
+            appState.apiKey = keyInput;
+            alert('تم حفظ المفتاح بنجاح! جاري اختبار الاتصال...');
+            autoConnect();
+        }
+        
+        async function testAPIKey() {
+            const keyInput = document.getElementById('api-key-input').value.trim();
+            if (!keyInput) {
+                alert('الرجاء إدخال مفتاح API أولاً');
+                return;
+            }
+            
+            updateConnectionStatus('checking', 'جاري اختبار المفتاح...');
+            updateProgress(30);
+            
+            try {
+                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${MODEL_NAME}?key=${keyInput}`);
+                
+                if (response.ok) {
+                    updateConnectionStatus('connected', 'المفتاح صالح!');
+                    updateProgress(100);
+                    document.getElementById('connection-success').style.display = 'block';
+                    document.getElementById('connection-error').style.display = 'none';
+                    document.getElementById('key-help').style.display = 'none';
+                    appState.apiKey = keyInput;
+                    appState.isConnected = true;
+                    enableUploadButtons();
+                    
+                    // حساب الطلبات المتبقية
+                    estimateRemainingQuota();
+                    
+                    alert('✅ المفتاح صالح وجاهز للاستخدام!');
+                } else {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error?.message || 'فشل الاتصال');
+                }
+            } catch (error) {
+                updateConnectionStatus('disconnected', 'المفتاح غير صالح');
+                updateProgress(0);
+                document.getElementById('connection-success').style.display = 'none';
+                document.getElementById('connection-error').style.display = 'block';
+                document.getElementById('connection-error').innerHTML = `✗ المفتاح غير صالح<br><small>الخطأ: ${error.message}</small>`;
+                appState.isConnected = false;
+            }
+        }
+        
+        async function autoConnect() {
+            if (!appState.apiKey) {
+                const savedKey = localStorage.getItem('gemini_api_key');
+                if (savedKey) {
+                    appState.apiKey = savedKey;
+                } else {
+                    // استخدام المفتاح الافتراضي مع تحذير
+                    appState.apiKey = "AIzaSyAcESLFwWV1Fdp6HOLMu7UkhuPoUhRiJvg";
+                    document.getElementById('key-help').style.display = 'block';
+                }
+            }
+            
+            updateConnectionStatus('checking', 'جاري الاتصال التلقائي...');
+            updateProgress(30);
+            
+            try {
+                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${MODEL_NAME}?key=${appState.apiKey}`);
+                
+                if (response.ok) {
+                    updateConnectionStatus('connected', 'متصل بنجاح بـ Gemini 2.0 Flash');
+                    updateProgress(100);
+                    document.getElementById('connection-success').style.display = 'block';
+                    document.getElementById('connection-error').style.display = 'none';
+                    document.getElementById('key-help').style.display = 'none';
+                    enableUploadButtons();
+                    document.title = "✓ " + document.title;
+                    appState.isConnected = true;
+                    
+                    // حساب الطلبات المتبقية
+                    estimateRemainingQuota();
+                    
+                } else {
+                    const errorData = await response.json();
+                    if (errorData.error?.status === "RESOURCE_EXHAUSTED") {
+                        throw new Error("تم تجاوز الحد اليومي للمفتاح. الرجاء استخدام مفتاح جديد.");
+                    }
+                    throw new Error(errorData.error?.message || 'فشل الاتصال بالنموذج');
+                }
+            } catch (error) {
+                updateConnectionStatus('disconnected', 'فشل الاتصال');
+                updateProgress(0);
+                document.getElementById('connection-success').style.display = 'none';
+                
+                if (error.message.includes("الحد اليومي")) {
+                    document.getElementById('connection-error').innerHTML = `
+                        ✗ ${error.message}<br>
+                        <small><a href="https://makersuite.google.com/app/apikey" target="_blank" style="color:#ff8888;">احصل على مفتاح جديد مجاناً</a></small>
+                    `;
+                } else {
+                    document.getElementById('connection-error').innerHTML = `✗ فشل الاتصال بـ Gemini API<br><small>الخطأ: ${error.message}</small>`;
+                }
+                document.getElementById('connection-error').style.display = 'block';
+                document.getElementById('key-help').style.display = 'block';
+                appState.isConnected = false;
+            }
+        }
+        
+        function estimateRemainingQuota() {
+            // محاكاة تقديرية للطلبات المتبقية
+            const now = new Date();
+            const lastReset = localStorage.getItem('quota_last_reset');
+            const used = parseInt(localStorage.getItem('quota_used') || '0');
+            
+            if (lastReset) {
+                const lastResetDate = new Date(lastReset);
+                const hoursSinceReset = (now - lastResetDate) / (1000 * 60 * 60);
+                
+                if (hoursSinceReset >= 24) {
+                    // تم تجاوز 24 ساعة - إعادة تعيين العداد
+                    localStorage.setItem('quota_used', '0');
+                    localStorage.setItem('quota_last_reset', now.toISOString());
+                    appState.usedQuota = 0;
+                } else {
+                    appState.usedQuota = used;
+                }
+            } else {
+                localStorage.setItem('quota_last_reset', now.toISOString());
+                localStorage.setItem('quota_used', '0');
+                appState.usedQuota = 0;
+            }
+            
+            const remaining = Math.max(0, appState.dailyQuota - appState.usedQuota);
+            document.getElementById('quota-info').innerHTML = `الطلبات المتبقية: <strong>${remaining}</strong> / ${appState.dailyQuota}`;
+            return remaining;
+        }
+        
+        function incrementQuotaCounter() {
+            const used = parseInt(localStorage.getItem('quota_used') || '0');
+            const newUsed = used + 1;
+            localStorage.setItem('quota_used', newUsed.toString());
+            appState.usedQuota = newUsed;
+            estimateRemainingQuota();
+        }
+        
+        function updateConnectionStatus(status, message = '') {
+            const globalStatus = document.getElementById('global-status');
+            const globalStatusText = document.getElementById('global-status-text');
+            const statusIndicator = globalStatus.querySelector('.status-indicator');
+            statusIndicator.className = 'status-indicator status-' + status;
+            
+            if (message) {
+                globalStatusText.textContent = message;
+            } else {
+                switch(status) {
+                    case 'connected': globalStatusText.textContent = 'متصل'; break;
+                    case 'disconnected': globalStatusText.textContent = 'غير متصل'; break;
+                    case 'checking': globalStatusText.textContent = 'جاري الاتصال...'; break;
+                }
+            }
+            appState.isConnected = (status === 'connected');
+        }
+        
+        function updateProgress(percent) {
+            document.getElementById('connection-progress').style.width = percent + '%';
+        }
+        
+        function updateAnalysisProgress(percent) {
+            document.getElementById('analysis-progress').style.width = percent + '%';
+        }
+        
+        function enableUploadButtons() {
+            document.getElementById('m1-btn').disabled = false;
+            document.getElementById('m5-btn').disabled = false;
+            document.getElementById('m15-btn').disabled = false;
+        }
+        
+        function setupImageUpload(inputId, previewId, timeframe, boxId, counterId) {
+            const input = document.getElementById(inputId);
+            input.addEventListener('change', function(e) {
+                const file = e.target.files[0];
+                if (file) {
+                    if (!file.type.startsWith('image/')) {
+                        alert('الرجاء رفع ملف صورة فقط');
+                        return;
+                    }
+                    if (file.size > 5 * 1024 * 1024) {
+                        alert('حجم الصورة كبير جدًا. الرجاء اختيار صورة أقل من 5MB');
+                        return;
+                    }
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        const img = document.getElementById(previewId);
+                        img.src = e.target.result;
+                        img.style.display = 'block';
+                        appState[timeframe + 'Image'] = file;
+                        if (!appState[timeframe + 'Uploaded']) {
+                            appState.uploadedCount++;
+                            appState[timeframe + 'Uploaded'] = true;
+                        }
+                        document.getElementById(counterId).style.display = 'block';
+                        document.getElementById(boxId).classList.add('active');
+                        updateAnalyzeButton();
+                    };
+                    reader.readAsDataURL(file);
+                }
+            });
+        }
+        
+        function updateAnalyzeButton() {
+            const analyzeBtn = document.getElementById('analyze-btn');
+            const isReady = appState.isConnected && appState.m1Image && appState.m5Image && appState.m15Image;
+            analyzeBtn.disabled = !isReady;
+            
+            if (isReady) {
+                analyzeBtn.innerHTML = `🤖 تحليل ${appState.uploadedCount}/3 صور`;
+            } else {
+                analyzeBtn.innerHTML = `🤖 تحليل بالذكاء الاصطناعي`;
+            }
+        }
+        
+        async function analyzeChartsWithAI() {
+            if (!appState.isConnected) {
+                alert('غير متصل بـ API. جاري إعادة الاتصال...');
+                await autoConnect();
+                return;
+            }
+            if (!appState.m1Image || !appState.m5Image || !appState.m15Image) {
+                alert('الرجاء رفع الصور الثلاثة أولاً');
+                return;
+            }
+            
+            // التحقق من الطلبات المتبقية
+            const remaining = estimateRemainingQuota();
+            if (remaining <= 0) {
+                alert('لقد استنفدت جميع الطلبات المجانية لهذا اليوم. الرجاء المحاولة غداً أو استخدام مفتاح جديد.');
+                return;
+            }
+            
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('result-section').style.display = 'none';
+            const loadingDetails = document.getElementById('loading-details');
+            loadingDetails.textContent = 'تحويل الصور إلى تنسيق قابل للتحليل...';
+            updateAnalysisProgress(10);
+            
+            try {
+                loadingDetails.textContent = 'معالجة وضغط الصور...';
+                updateAnalysisProgress(30);
+                
+                // معالجة الصور بضغط ذكي
+                const m1Base64 = await processAndCompressImage(appState.m1Image, 'M1');
+                const m5Base64 = await processAndCompressImage(appState.m5Image, 'M5');
+                const m15Base64 = await processAndCompressImage(appState.m15Image, 'M15');
+                
+                loadingDetails.textContent = 'إعداد طلب الذكاء الاصطناعي...';
+                updateAnalysisProgress(50);
+                
+                // زيادة فرصة النجاح باستخدام Prompt مبسط
+                const analysis = await sendToGeminiAPI(m1Base64, m5Base64, m15Base64);
+                
+                loadingDetails.textContent = 'معالجة النتائج...';
+                updateAnalysisProgress(90);
+                
+                // زيادة عداد الاستخدام
+                incrementQuotaCounter();
+                
+                await processAIResponse(analysis);
+                
+                updateAnalysisProgress(100);
+                setTimeout(() => {
+                    document.getElementById('loading').style.display = 'none';
+                    document.getElementById('result-section').style.display = 'block';
+                    document.getElementById('result-section').scrollIntoView({ behavior: 'smooth' });
+                }, 500);
+                
+            } catch (error) {
+                document.getElementById('loading').style.display = 'none';
+                updateAnalysisProgress(0);
+                
+                if (error.message.includes('429') || error.message.includes('RESOURCE_EXHAUSTED') || error.message.includes('quota')) {
+                    alert('تم تجاوز الحد اليومي لاستخدام API. الرجاء:\n1. الانتظار حتى الغد\n2. استخدام مفتاح جديد\n3. تأكد من ضغط الصور قبل الرفع');
+                    document.getElementById('key-help').style.display = 'block';
+                } else if (error.message.includes('invalid') || error.message.includes('API key') || error.message.includes('permission')) {
+                    alert('مفتاح API غير صالح أو منتهي الصلاحية. الرجاء استخدام مفتاح جديد.');
+                    document.getElementById('key-help').style.display = 'block';
+                } else if (error.message.includes('network') || error.message.includes('fetch')) {
+                    alert('مشكلة في الاتصال بالإنترنت. الرجاء التحقق من اتصالك.');
+                } else {
+                    alert('حدث خطأ أثناء التحليل: ' + error.message);
+                }
+                console.error('Analysis error:', error);
+            }
+        }
+        
+        async function processAndCompressImage(file, timeframe) {
+            console.log(`${timeframe} - Original size: ${(file.size / 1024).toFixed(2)} KB`);
+            
+            // إذا كانت الصورة صغيرة (< 300KB)، استخدمها كما هي
+            if (file.size < 300 * 1024) {
+                return await convertImageToBase64(file);
+            }
+            
+            // ضغط الصور الكبيرة
+            return new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = function(event) {
+                    const img = new Image();
+                    img.src = event.target.result;
+                    img.onload = function() {
+                        const canvas = document.createElement('canvas');
+                        const ctx = canvas.getContext('2d');
+                        
+                        // تحديد الأبعاد المناسبة
+                        let maxDimension = 800;
+                        if (file.size > 1024 * 1024) maxDimension = 600; // صور أكبر من 1MB
+                        if (file.size > 2 * 1024 * 1024) maxDimension = 400; // صور أكبر من 2MB
+                        
+                        let width = img.width;
+                        let height = img.height;
+                        
+                        // الحفاظ على النسبة
+                        if (width > height) {
+                            if (width > maxDimension) {
+                                height = Math.round(height * maxDimension / width);
+                                width = maxDimension;
+                            }
+                        } else {
+                            if (height > maxDimension) {
+                                width = Math.round(width * maxDimension / height);
+                                height = maxDimension;
+                            }
+                        }
+                        
+                        canvas.width = width;
+                        canvas.height = height;
+                        
+                        // رسم الصورة المضغوطة
+                        ctx.drawImage(img, 0, 0, width, height);
+                        
+                        // جودة الضغط حسب الحجم
+                        let quality = 0.7;
+                        if (file.size > 2 * 1024 * 1024) quality = 0.5;
+                        
+                        const compressedBase64 = canvas.toDataURL('image/jpeg', quality).split(',')[1];
+                        console.log(`${timeframe} - Compressed: ${(compressedBase64.length / 1024).toFixed(2)} KB`);
+                        
+                        resolve(compressedBase64);
+                    };
+                };
+            });
+        }
+        
+        function convertImageToBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const base64 = e.target.result.split(',')[1];
+                    resolve(base64);
+                };
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+        }
+        
+        async function sendToGeminiAPI(m1Base64, m5Base64, m15Base64) {
+            // ✅ PROMPT مختصر ومحسن لتقليل Tokens
+            const prompt = `أنت محلل فني خبير. حلل الصور الثلاث (M15, M5, M1) وأجب بالتنسيق:
+
+نوع الصفقة: [شراء/بيع/محايد]
+نسبة الثقة: [رقم بين 0-100]%
+منطقة الدخول: [نطاق سعري]
+الهدف الأول: [سعر]
+الهدف الثاني: [سعر]
+التحليل: [1. تحليل M15 2. تحليل M5 3. تحليل M1 4. المؤشرات]
+ملاحظات: [نصائح]`;
+
+            const payload = {
+                contents: [{
+                    parts: [
+                        { text: prompt },
+                        { 
+                            inline_data: { 
+                                mime_type: "image/jpeg", 
+                                data: m15Base64 
+                            } 
+                        },
+                        { 
+                            inline_data: { 
+                                mime_type: "image/jpeg", 
+                                data: m5Base64 
+                            } 
+                        },
+                        { 
+                            inline_data: { 
+                                mime_type: "image/jpeg", 
+                                data: m1Base64 
+                            } 
+                        }
+                    ]
+                }],
+                generationConfig: {
+                    temperature: 0.2,
+                    topK: 32,
+                    topP: 0.8,
+                    maxOutputTokens: 1500, // تقليل Tokens للإخراج
+                }
+            };
+            
+            // تسجيل حجم الطلب للتشخيص
+            console.log("Request payload size:", JSON.stringify(payload).length, "bytes");
+            
+            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${MODEL_NAME}:generateContent?key=${appState.apiKey}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            
+            if (!response.ok) {
+                const errorData = await response.json();
+                const errorMsg = errorData.error?.message || 'Unknown error';
+                console.error("API Error:", errorData);
+                throw new Error(`API Error: ${errorMsg} (Status: ${response.status})`);
+            }
+            
+            const data = await response.json();
+            if (!data.candidates || !data.candidates[0] || !data.candidates[0].content || !data.candidates[0].content.parts[0]) {
+                throw new Error('Invalid model response structure');
+            }
+            return data.candidates[0].content.parts[0].text;
+        }
+        
+        function processAIResponse(responseText) {
+            console.log("AI Response received");
+            
+            // معالجة النتائج
+            const tradeTypeMatch = responseText.match(/نوع الصفقة:\s*([^\n]+)/i);
+            const confidenceMatch = responseText.match(/نسبة الثقة:\s*(\d+)%/i);
+            const entryMatch = responseText.match(/منطقة الدخول:\s*([^\n]+)/i);
+            const target1Match = responseText.match(/الهدف الأول:\s*([^\n]+)/i);
+            const target2Match = responseText.match(/الهدف الثاني:\s*([^\n]+)/i);
+            
+            // استخراج التحليل
+            const analysisStart = responseText.indexOf('التحليل:');
+            const notesStart = responseText.indexOf('ملاحظات:');
+            
+            let analysisText = 'تم التحليل بنجاح';
+            let notesText = 'لا توجد ملاحظات إضافية';
+            
+            if (analysisStart !== -1) {
+                const analysisEnd = notesStart !== -1 ? notesStart : responseText.length;
+                analysisText = responseText.substring(analysisStart + 8, analysisEnd).trim();
+            }
+            
+            if (notesStart !== -1) {
+                notesText = responseText.substring(notesStart + 9).trim();
+            }
+            
+            // تحديث الواجهة
+            const tradeType = tradeTypeMatch ? tradeTypeMatch[1].trim() : 'محايد';
+            const tradeTypeElement = document.getElementById('trade-type');
+            
+            if (tradeType.includes('شراء')) {
+                tradeTypeElement.className = 'result-item buy';
+            } else if (tradeType.includes('بيع')) {
+                tradeTypeElement.className = 'result-item sell';
+            } else {
+                tradeTypeElement.className = 'result-item';
+            }
+            tradeTypeElement.querySelector('.result-value').textContent = tradeType;
+            
+            const confidence = confidenceMatch ? parseInt(confidenceMatch[1]) : 50;
+            const confidenceElement = document.getElementById('confidence').querySelector('.result-value');
+            confidenceElement.textContent = confidence + '%';
+            
+            let confidenceClass = 'confidence-medium';
+            if (confidence >= 70) confidenceClass = 'confidence-high';
+            else if (confidence <= 40) confidenceClass = 'confidence-low';
+            confidenceElement.className = 'result-value ' + confidenceClass;
+            
+            document.getElementById('entry').textContent = entryMatch ? entryMatch[1].trim() : 'غير محدد';
+            document.getElementById('target1').textContent = target1Match ? target1Match[1].trim() : 'غير محدد';
+            document.getElementById('target2').textContent = target2Match ? target2Match[1].trim() : 'غير محدد';
+            document.getElementById('reasons').innerHTML = analysisText.replace(/\n/g, '<br>');
+            document.getElementById('ai-notes').innerHTML = notesText.replace(/\n/g, '<br>');
+            
+            playSuccessSound();
+        }
+        
+        function playSuccessSound() {
+            try {
+                // صوت نجاح بسيط
+                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+                
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+                
+                oscillator.frequency.value = 800;
+                oscillator.type = 'sine';
+                gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+                
+                oscillator.start(audioContext.currentTime);
+                oscillator.stop(audioContext.currentTime + 0.3);
+            } catch (e) {
+                // تجاهل الخطأ إذا لم يدعم المتصفح Web Audio API
+            }
+        }
+        
+        // إعادة الاتصال التلقائي كل 5 دقائق
+        setInterval(async () => {
+            if (!appState.isConnected) {
+                console.log('محاولة إعادة اتصال تلقائي...');
+                await autoConnect();
+            }
+        }, 5 * 60 * 1000);
+        
+        // تحديث عداد الطلبات كل دقيقة
+        setInterval(() => {
+            estimateRemainingQuota();
+        }, 60 * 1000);
+    </script>
+</body>
+</html>
